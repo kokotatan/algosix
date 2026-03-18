@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Noto+Sans+JP:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --white: #ffffff;
+  --black: #111111;
+  --gray1: #f0f0f0;
+  --gray2: #d0d0d0;
+  --gray3: #a0a0a0;
+  --gray4: #606060;
+  --red: #e03030;
+  --green: #28a028;
+  --border: #222222;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#__next {
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ─── Geometric Decorations ─── */
+.geo-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.geo-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid;
+  opacity: 0.35;
+}
+
+.geo-polygon {
+  position: absolute;
+  opacity: 0.3;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ─── Button base ─── */
+button:active {
+  transform: scale(0.97) !important;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray2);
+  border-radius: 2px;
+}
+
+/* ─── Selection ─── */
+.game-active {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input:focus {
+  outline: none;
+}
