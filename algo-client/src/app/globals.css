@@ -326,3 +326,98 @@ input:focus {
     transition: none !important;
   }
 }
+
+/* ─── Share Buttons ─── */
+.share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.share-btn {
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid var(--gray2);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1 1 calc(50% - 4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.share-btn:hover {
+  background: var(--gray1);
+  border-color: var(--black);
+}
+
+.share-btn.share-line {
+  background: #06c755;
+  color: #fff;
+  border-color: #06c755;
+}
+.share-btn.share-line:hover {
+  background: #05b34c;
+}
+
+.share-btn.copied {
+  background: var(--black);
+  color: var(--white);
+  border-color: var(--black);
+}
+
+.share-btn.share-qr {
+  flex: 1 1 100%;
+}
+
+/* ─── Stamp Bar ─── */
+.stamp-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  border-top: 2px solid var(--border);
+  scrollbar-width: none;
+}
+.stamp-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.stamp-btn {
+  padding: 8px 16px;
+  border-radius: 24px;
+  background: var(--gray1);
+  border: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--black);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.stamp-btn:hover {
+  transform: translateY(-2px);
+  background: var(--white);
+  border-color: var(--black);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.stamp-btn:active {
+  transform: scale(0.95) !important;
+}
+
+.stamp-btn.cooling {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

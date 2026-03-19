@@ -111,31 +111,48 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
     <ScreenWrapper>
       <div style={{ padding: 24, paddingBottom: 0, textAlign: "center", display: "flex", flexDirection: "column", flex: 1, overflowY: "auto" }}>
         <h2 style={{ fontSize: 24, margin: "0 0 8px", fontWeight: 800 }}>ルーム待機室</h2>
-        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, fontFamily: "monospace", margin: "16px 0" }}>
-          {roomId}
+        {/* Room ID Section */}
+        <div style={{ 
+          background: "rgba(0,0,0,0.03)", 
+          padding: "20px", 
+          borderRadius: "16px", 
+          margin: "12px 0 24px",
+          border: "1px solid rgba(0,0,0,0.05)"
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--gray3)", letterSpacing: "0.1em", marginBottom: 4 }}>ROOM ID</div>
+          <div style={{ 
+            fontSize: 32, 
+            fontWeight: 900, 
+            letterSpacing: 6, 
+            fontFamily: "'Inter', sans-serif", 
+            color: "var(--black)",
+            textShadow: "0 2px 4px rgba(0,0,0,0.1)"
+          }}>
+            {roomId}
+          </div>
         </div>
 
         {/* Share Tools */}
-        <div style={{ maxWidth: 320, margin: "0 auto 24px", width: "100%" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, textAlign: "left" }}>友達を招待</div>
+        <div style={{ maxWidth: 360, margin: "0 auto 32px", width: "100%" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--gray4)", marginBottom: 10, textAlign: "left", letterSpacing: "0.02em" }}>友達を招待</div>
           <div className="share-row">
             <button className="share-btn share-line" onClick={shareToLine}>
-              LINEで送る
+              <span style={{ fontSize: 16 }}>💬</span> LINEで送る
             </button>
-            <button className={`share-btn share-url ${copiedType === 'url' ? 'copied' : ''}`} onClick={copyUrl}>
-              {copiedType === 'url' ? 'コピーしました' : 'URLをコピー'}
+            <button className={`share-btn ${copiedType === 'url' ? 'copied' : ''}`} onClick={copyUrl}>
+              {copiedType === 'url' ? '✅ コピー完了' : '🔗 URLをコピー'}
             </button>
-            <button className={`share-btn share-code ${copiedType === 'code' ? 'copied' : ''}`} onClick={copyCode}>
-              {copiedType === 'code' ? 'コピーしました' : 'コードをコピー'}
+            <button className={`share-btn ${copiedType === 'code' ? 'copied' : ''}`} onClick={copyCode}>
+              {copiedType === 'code' ? '✅ コピー完了' : '🆔 コードをコピー'}
             </button>
             <button className="share-btn share-qr" onClick={() => setShowQr(!showQr)}>
-              QRコード {showQr ? "▲" : "▼"}
+              📷 QRコードを表示 {showQr ? "▲" : "▼"}
             </button>
           </div>
           {showQr && qrDataUrl && (
-            <div style={{ textAlign:"center", padding:"14px 0", animation:"logSlideUp .28s ease both" }}>
-              <img src={qrDataUrl} alt="QR" style={{ width:180, height:180, borderRadius:8, display:"block", margin:"0 auto" }}/>
-              <p style={{ fontSize:11, color:"var(--gray3)", marginTop:8 }}>カメラで読み取ってもらおう</p>
+            <div style={{ textAlign:"center", padding:"20px 0", animation:"logSlideUp .3s cubic-bezier(0.22, 1, 0.36, 1) both", background: "var(--white)", borderRadius: 12, marginTop: 12, border: "1px solid var(--gray1)" }}>
+              <img src={qrDataUrl} alt="QR" style={{ width:180, height:180, borderRadius:8, display:"block", margin:"0 auto", border: "4px solid white", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}/>
+              <p style={{ fontSize:12, color:"var(--gray3)", marginTop:10, fontWeight: 600 }}>カメラで読み取って参加！</p>
             </div>
           )}
         </div>
@@ -146,25 +163,64 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
             参加者 ({players.length}/{maxPlayers})
           </div>
           
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {players.map((p, index) => (
-              <div key={p.id} className="slot-item filled" style={{ position: "relative", padding: "12px 16px", borderRadius: 8, background: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center" }}>
+              <div key={p.id} className="slot-item filled" style={{ 
+                position: "relative", 
+                padding: "14px 18px", 
+                borderRadius: "12px", 
+                background: "var(--white)", 
+                display: "flex", 
+                alignItems: "center",
+                border: "1.5px solid var(--gray1)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
+              }}>
                 <StampFloat stampData={p.lastStamp} />
-                <span style={{ fontWeight: 600, width: 24 }}>{p.seatIndex + 1}</span>
-                <span style={{ fontWeight: 600, flex: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                  {p.name}
-                </span>
-                {p.isHost && <span style={{ fontSize: 10, background: "var(--black)", color: "#fff", padding: "2px 6px", borderRadius: 4, marginRight: 8, fontWeight: 700 }}>HOST</span>}
+                <div style={{ 
+                  width: 28, height: 28, borderRadius: "50%", 
+                  background: "var(--black)", color: "var(--white)", 
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 14, fontWeight: 900, marginRight: 12
+                }}>
+                  {p.seatIndex + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 800, fontSize: 16, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                    {p.name}
+                  </span>
+                  {p.isHost && (
+                    <span style={{ 
+                      fontSize: 10, 
+                      background: "rgba(17,17,17,0.08)", 
+                      color: "var(--black)", 
+                      padding: "2px 8px", 
+                      borderRadius: "12px", 
+                      fontWeight: 800,
+                      letterSpacing: "0.05em",
+                      border: "1px solid rgba(0,0,0,0.1)"
+                    }}>HOST</span>
+                  )}
+                </div>
                 
-                {isHost && index > 0 && (
-                  <button className="swap-btn" onClick={() => emit("swap_seats", { roomId, seatA_player_id: players[index-1].id, seatB_player_id: p.id })}>
-                    ↑
-                  </button>
-                )}
-                {isHost && p.id !== myId && (
-                  <button className="kick-btn" onClick={() => handleKick(p)}>✕</button>
-                )}
-                <ConnDot connected={p.connected} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {isHost && index > 0 && (
+                    <button className="swap-btn-new" 
+                      style={{ background: "none", border: "1px solid var(--gray2)", borderRadius: "6px", width: 28, height: 28, cursor: "pointer", fontSize: 14 }}
+                      onClick={() => emit("swap_seats", { roomId, seatA_player_id: players[index-1].id, seatB_player_id: p.id })}
+                    >
+                      ↑
+                    </button>
+                  )}
+                  {isHost && p.id !== myId && (
+                    <button className="kick-btn-new" 
+                      style={{ background: "none", border: "1px solid var(--red)", color: "var(--red)", borderRadius: "6px", width: 28, height: 28, cursor: "pointer", fontSize: 12 }}
+                      onClick={() => handleKick(p)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                  <ConnDot connected={p.connected} />
+                </div>
               </div>
             ))}
             
