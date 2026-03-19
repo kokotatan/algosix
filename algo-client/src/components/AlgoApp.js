@@ -1355,8 +1355,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             color: C.black,
             flexShrink: 0
           }}
-        >
-          algosi<span style={{ fontStyle: "italic" }}>X</span>
+          ALGOSIX
         </span>
         
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minWidth: 100 }}>
