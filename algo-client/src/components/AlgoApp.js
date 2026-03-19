@@ -983,19 +983,12 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     });
   }, [state, isHost, onlineContext, onlinePlayers, emit, roomId]);
 
-  // Peer: Receive state updates from host
+  // Peer: Receive state updates from host (Moved to AlgoApp top-level for better screen transitions)
+  /*
   useEffect(() => {
-    if (!onlineContext || isHost) return;
-    
-    const handleSync = (newState) => {
-      onGameStateChange(newState);
-      if (newState.phase === "gameover") {
-         setTimeout(() => onGameEnd(newState), 800);
-      }
-    };
-    on("sync_state", handleSync);
-    return () => off("sync_state", handleSync);
-  }, [onlineContext, isHost, on, off, onGameStateChange, onGameEnd]);
+    ...
+  }, [...]);
+  */
 
   // --- ACTION DISPATCHER ---
   const dispatchAction = useCallback((actionType, payload) => {
@@ -1795,6 +1788,20 @@ export default function AlgoApp() {
       setOnlinePlayers(data.players);
     });
 
+    on("game_started", () => {
+      setScreen("game");
+    });
+
+    on("sync_state", (newState) => {
+      setGameState(newState);
+      if (newState.phase !== "gameover" && screen !== "game") {
+        setScreen("game");
+      }
+      if (newState.phase === "gameover") {
+         setTimeout(() => handleGameEnd(newState), 800);
+      }
+    });
+
     return () => {
       off("room_created");
       off("player_joined");
@@ -1802,8 +1809,10 @@ export default function AlgoApp() {
       off("error");
       off("room_closed");
       off("player_left");
+      off("game_started");
+      off("sync_state");
     };
-  }, [on, off, screen, disconnect]);
+  }, [on, off, screen, disconnect, handleGameEnd]);
 
   const handleCreateOnlineRoom = useCallback((config) => {
     connect();
@@ -1870,6 +1879,7 @@ export default function AlgoApp() {
       cpuOpts = { level: "normal", cpuConfig };
     }
 
+    emit("start_game", { roomId: onlineRoomId });
     handleStartGame(finalNames, onlineConfig.mode, cpuOpts);
 
     // Initial sync of the generated game state will happen inside GameScreen when it mounts

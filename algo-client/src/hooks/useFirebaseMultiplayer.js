@@ -143,6 +143,16 @@ export function useFirebaseMultiplayer() {
         connectionRef.current.roomId = null;
         connectionRef.current.isHost = false;
       });
+
+      // Watch for game start (if I am host, but also good for consistency)
+      const startRef = ref(db, `rooms/${roomId}/meta/started`);
+      const unsubStart = onValue(startRef, (snap) => {
+        if (snap.val() === true) {
+           trigger("game_started", {});
+        }
+      });
+      unsubscribeFuncs.current.push(unsubStart);
+
       return;
     }
 
@@ -206,13 +216,22 @@ export function useFirebaseMultiplayer() {
           
           // Listen to state syncs tailored for me
           const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
-          const unsubState = onValue(myStateRef, (ssnap) => {
-             if (ssnap.exists()) {
-                 trigger("sync_state", ssnap.val());
+           const unsubState = onValue(myStateRef, (ssnap) => {
+              if (ssnap.exists()) {
+                  trigger("sync_state", ssnap.val());
+              }
+           });
+           unsubscribeFuncs.current.push(unsubState);
+
+           // Watch for game start
+           const startRef = ref(db, `rooms/${roomId}/meta/started`);
+           const unsubStart = onValue(startRef, (snap) => {
+             if (snap.val() === true) {
+                trigger("game_started", {});
              }
-          });
-          unsubscribeFuncs.current.push(unsubState);
-        });
+           });
+           unsubscribeFuncs.current.push(unsubStart);
+         });
       }).catch((err) => {
         trigger("error", { message: "ルーム参加に失敗しました: " + err.message });
         connectionRef.current.roomId = null;
@@ -241,6 +260,14 @@ export function useFirebaseMultiplayer() {
           });
        }
        return;
+    }
+
+    if (event === "start_game") {
+      const { roomId } = payload;
+      if (roomId) {
+        set(ref(db, `rooms/${roomId}/meta/started`), true);
+      }
+      return;
     }
 
     // --- NEW ONLINE UX ACTIONS ---
