@@ -173,6 +173,7 @@ function Step1Cards({ onNext }) {
 /* ─── Step 2: Turn Flow ─── */
 function Step2TurnFlow({ onNext }) {
   const [subStep, setSubStep] = useState(0);
+  const [isDrawing, setIsDrawing] = useState(false);
   const cpuHand = [
     { id: "cpu-b1", color: "black", number: 1, revealed: false },
     { id: "cpu-w4", color: "white", number: 4, revealed: false },
@@ -189,14 +190,35 @@ function Step2TurnFlow({ onNext }) {
             まず、<strong>山札からカードを1枚引きます</strong>。
             引いたカードは自分だけ見えます。
           </p>
-          <div style={hintBox}>タップして引いてみよう！</div>
-          <Btn onClick={() => setSubStep(1)}>カードを引く</Btn>
+          
+          <div style={{ margin: "16px 0", height: 86, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            {isDrawing ? (
+               <div style={{ animation: "flip-reveal 0.6s ease-out forwards" }}>
+                 <Card card={{ id: "draw-w5", color: "white", number: 5, revealed: true }} size="xl" />
+               </div>
+            ) : (
+               <Card card={{ id: "draw-back", color: "black", number: null, revealed: false }} size="xl" />
+            )}
+          </div>
+
+          {!isDrawing && (
+             <>
+               <div style={hintBox}>タップして引いてみよう！</div>
+               <Btn onClick={() => {
+                 setIsDrawing(true);
+                 setTimeout(() => setSubStep(1), 1200);
+               }}>カードを引く</Btn>
+             </>
+          )}
         </>
       )}
       {subStep === 1 && (
         <>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, background: C.gray1, padding: "8px 16px", borderRadius: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.black }}>引いたカード:</span>
+            <Card card={{ id: "draw-w5-small", color: "white", number: 5, revealed: true }} size="md" />
+          </div>
           <p style={descStyle}>
-            引いたカード: <strong>白5</strong><br />
             次に、<strong>相手の伏せカードを1枚選びます</strong>。
           </p>
           <div style={{ display: "flex", gap: 4, justifyContent: "center", margin: "12px 0" }}>
@@ -277,10 +299,14 @@ function Step3Results({ onNext }) {
               <div style={{ display: "flex", justifyContent: "center", margin: "8px 0" }}>
                 <Card card={{ ...correctCard, revealed: true }} size="xl" />
               </div>
-              <p style={{ ...descStyle, fontSize: 12 }}>
-                正解の後は「再アタック」か「ステイ」を選べます。
+              <p style={{ ...descStyle, fontSize: 13, marginTop: 12, borderTop: `1px dashed ${C.gray2}`, paddingTop: 12 }}>
+                正解した後は<strong>「続けてアタック」</strong>するか、<br/>
+                安全にターンを終える<strong>「ステイ」</strong>かを選べます！
               </p>
-              <Btn onClick={() => setSubStep(1)}>不正解も体験する →</Btn>
+              <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                <Btn onClick={() => setSubStep(1)} style={{ fontSize: 13, padding: "10px 16px" }}>続けてアタック</Btn>
+                <Btn onClick={() => setSubStep(1)} style={{ fontSize: 13, padding: "10px 16px", background: C.white, color: C.black }}>ステイ（終了）</Btn>
+              </div>
             </>
           ) : (
             <>
@@ -310,9 +336,20 @@ function Step3Results({ onNext }) {
           {result2 ? (
             <>
               <div style={{ ...resultBadge, borderColor: C.red, color: C.red }}>
-                不正解！ 引いたカードが公開されてターン終了です。
+                不正解！
               </div>
-              <Btn onClick={onNext}>最終ステップへ →</Btn>
+              <p style={{ ...descStyle, fontSize: 13, marginTop: 12, borderTop: `1px dashed ${C.gray2}`, paddingTop: 12 }}>
+                外れたペナルティとして、さきほど引いたカード（白5）が<br/>
+                <strong>表向きで相手にバレた状態</strong>で手札に追加され、<br/>
+                ターンが終了してしまいます！
+              </p>
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", margin: "16px 0", padding: "12px", background: C.gray1, borderRadius: 8, animation: "fadeIn 0.6s ease" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, writingMode: "vertical-rl", paddingRight: 8 }}>自分の手札</div>
+                <Card card={{ id: "pen-wb2", color: "white", number: null, revealed: false }} size="sm" />
+                <Card card={{ id: "pen-w5", color: "white", number: 5, revealed: true }} size="sm" />
+                <Card card={{ id: "pen-bb8", color: "black", number: null, revealed: false }} size="sm" />
+              </div>
+              <Btn onClick={onNext} style={{ marginTop: 8 }}>最終ステップへ →</Btn>
             </>
           ) : (
             <>
