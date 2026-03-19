@@ -898,7 +898,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   
   const isOnlinePeer = onlineContext && onlineContext.roomId && !onlineContext.isHost;
   const currentViewPlayer = isOnlinePeer 
-    ? state.players.findIndex(p => p.name === onlineContext.onlinePlayers.find(op => op.id === "self")?.name) 
+    ? state.players.findIndex(p => p.id === onlineContext.selfId) 
     : currentPlayer;
     
   const cardSize = getCardSize(playerNames.length);
@@ -906,7 +906,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   const cpuKnowledgeRefs = useRef({});
 
   useEffect(() => {
-    if (state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
+    if (!onlineContext && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
       setShowPassScreen(true);
     }
     setSelectedTarget(null);
@@ -1178,6 +1178,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     const partner = state.players[partnerIdx];
 
     if (state.phase === "pass_to_partner") {
+      // If online mode, skip swap screen entirely
+      if (onlineContext) return null;
       // If partner is CPU, don't show pass screen — let useEffect handle auto-toss
       if (!partner?.isCpu) {
         const partnerName = partner.name;
@@ -1210,6 +1212,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     }
 
     if (state.phase === "pass_back") {
+      // If online mode, skip swap screen entirely
+      if (onlineContext) return null;
       // If current player is CPU, skip pass_back screen (useEffect handles it)
       if (!state.players[currentPlayer].isCpu) {
         const currentName = state.players[currentPlayer].name;
@@ -1731,7 +1735,7 @@ export default function AlgoApp() {
   const [pendingCode, setPendingCode] = useState("");
 
   // Online Multiplayer State (Firebase Adaptive Hook)
-  const { connected, socket, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
+  const { connected, socket, selfId, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
   const [onlineRoomId, setOnlineRoomId] = useState(null);
   const [onlinePlayers, setOnlinePlayers] = useState([]);
   const [isHost, setIsHost] = useState(false);
@@ -1761,6 +1765,13 @@ export default function AlgoApp() {
       }
     });
 
+    on("room_joined", (data) => {
+      setOnlineConfig(data.config);
+      setOnlineRoomId(data.roomId);
+      setIsHost(false);
+      setScreen("online_room");
+    });
+
     on("error", (error) => {
       let msg = error.message;
       if (msg && msg.includes("失敗しました")) {
@@ -1787,6 +1798,7 @@ export default function AlgoApp() {
     return () => {
       off("room_created");
       off("player_joined");
+      off("room_joined");
       off("error");
       off("room_closed");
       off("player_left");
@@ -1911,7 +1923,7 @@ export default function AlgoApp() {
           onStart={handleOnlineHostStart}
           onLeave={handleLeaveOnlineRoom}
           emit={emit}
-          myId={socket?.id}
+          myId={selfId}
         />
       );
     case "game":

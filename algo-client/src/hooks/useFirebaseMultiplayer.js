@@ -168,6 +168,10 @@ export function useFirebaseMultiplayer() {
           return;
         }
         
+        const meta = snapshot.val();
+        // Notify the app about the room configuration immediately
+        trigger("room_joined", { roomId, config: meta });
+        
         const myPlayerRef = ref(db, `rooms/${roomId}/players/${selfId}`);
         set(myPlayerRef, {
           id: selfId,
@@ -321,5 +325,16 @@ export function useFirebaseMultiplayer() {
 
   }, [trigger]);
 
-  return { connected, socket: { id: connectionRef.current.selfId }, connect, disconnect, emit, on, off };
+  return { 
+    connected, 
+    socket: { id: connectionRef.current.selfId }, // Mock socket for compatibility
+    selfId: connectionRef.current.selfId,
+    roomId: connectionRef.current.roomId,
+    isHost: connectionRef.current.isHost,
+    connect, 
+    disconnect, 
+    emit, 
+    on, 
+    off 
+  };
 }
