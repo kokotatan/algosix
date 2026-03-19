@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "algosiX — 論理カードゲーム",
+  title: "ALGOSIX — 論理カードゲーム",
   description:
     "黒と白のカードを使った論理・推理カードゲーム「アルゴ」のWebアプリ。2〜4人対戦。",
   viewport: {

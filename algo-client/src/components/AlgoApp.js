@@ -118,8 +118,7 @@ function MenuScreen({ onNavigate }) {
               lineHeight: 1,
             }}
           >
-            algosi
-            <span style={{ fontStyle: "italic" }}>X</span>
+            ALGOSIX
           </h1>
           <p
             style={{
@@ -201,7 +200,7 @@ function MenuScreen({ onNavigate }) {
               letterSpacing: 1,
             }}
           >
-            Produced by algo
+            Produced by ALGOSIX
           </span>
         </div>
       </div>
@@ -313,7 +312,7 @@ function SetupScreen({ isCpuMode, onStart, onBack }) {
               margin: 0,
             }}
           >
-            algosi<span style={{ fontStyle: "italic" }}>X</span>
+            ALGOSIX
           </h1>
           <h2
             style={{
@@ -613,7 +612,7 @@ function SetupScreen({ isCpuMode, onStart, onBack }) {
           zIndex: 1,
         }}
       >
-        Produced by algo
+        Produced by ALGOSIX
       </div>
     </ScreenWrapper>
   );
