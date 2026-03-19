@@ -48,30 +48,42 @@ import { STAMPS } from "../lib/stamps";
 
 function ThinkingDots() {
   return (
-    <span style={{ display:"flex", gap:3, alignItems:"center" }}>
-      {[0,1,2].map(i => (
-        <span key={i} style={{
-          display:"inline-block", width:4, height:4, borderRadius:"50%",
-          background:"var(--gray3)",
-          animation:`dotPulse 1.1s ease-in-out ${i*.18}s infinite`,
+    <div style={{ display: "flex", gap: 3, alignItems: "center", height: 12 }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          width: 5, height: 5, borderRadius: "50%",
+          background: "currentColor",
+          animation: `dotPulse 1s ease-in-out ${i * 0.15}s infinite`
         }}/>
       ))}
-    </span>
+    </div>
   );
 }
 
 function ThinkingIndicator({ name, phase }) {
   const msg = {
-    draw:     `${name} がカードを引いています`,
-    attack:   `${name} が考えています`,
-    continue: `${name} が考えています`,
-  }[phase] ?? `${name} のターン`;
+    draw:     "DRAWING...",
+    attack:   "THINKING...",
+    continue: "THINKING...",
+  }[phase] ?? "WAITING";
 
   return (
-    <span style={{ display:"flex", alignItems:"center", gap:6 }}>
-      <ThinkingDots/>
-      <span style={{ fontSize:12, fontWeight:600, color:"var(--gray4)", whiteSpace: "nowrap" }}>{msg}</span>
-    </span>
+    <div style={{ 
+      display: "flex", 
+      alignItems: "center", 
+      gap: 8, 
+      background: "var(--gray1)", 
+      padding: "6px 14px", 
+      borderRadius: "20px",
+      fontSize: 10,
+      fontWeight: 800,
+      color: "var(--gray4)",
+      letterSpacing: "0.05em",
+      boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)"
+    }}>
+      <ThinkingDots />
+      <span>{name.toUpperCase()} IS {msg}</span>
+    </div>
   );
 }
 
