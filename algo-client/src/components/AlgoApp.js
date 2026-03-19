@@ -7,7 +7,7 @@ import {
   Card,
 } from "./GameUI";
 import Tutorial from "./Tutorial";
-import { runCpuTurn, CpuKnowledge } from "../lib/cpuAI";
+import { CpuKnowledge, shouldReattack, cpuSelectToss, cpuDecide } from "../lib/cpuAI";
 import {
   initGame,
   drawCard,
@@ -994,58 +994,93 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   // CPU Turn Execution
   useEffect(() => {
     if (!cpuSettings || state.phase === "gameover") return;
-    const curPlayer = state.players[currentPlayer];
-    if (!curPlayer.isCpu) return;
-
-    if (state.phase === "continue") {
-      setIsThinking(true);
-      const timer = setTimeout(() => {
-        setIsThinking(false);
-        // Simple 50% chance to re-attack for easy
-        if (Math.random() > 0.5) handleContinue();
-        else handleStay();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-
-    if (state.phase !== "draw" && state.phase !== "pass_to_partner") return;
-
-    if (!cpuKnowledgeRefs.current[curPlayer.id]) {
-      cpuKnowledgeRefs.current[curPlayer.id] = new CpuKnowledge(state.players, curPlayer.id, cpuSettings.level);
-    }
-    const knowledge = cpuKnowledgeRefs.current[curPlayer.id];
 
     let isUnmounted = false;
+    const curPlayer = state.players[currentPlayer];
+    const partnerIdx = getPartnerIndex(state.players.length, currentPlayer);
+    const partner = partnerIdx !== null ? state.players[partnerIdx] : null;
 
-    runCpuTurn(state, curPlayer.id, knowledge, cpuSettings.level, state.mode, {
-      setThinking: (t) => { if (!isUnmounted) setIsThinking(t); },
-      onAction: async (action) => {
+    const getKnowledge = (pId) => {
+      if (!cpuKnowledgeRefs.current[pId]) {
+        cpuKnowledgeRefs.current[pId] = new CpuKnowledge(state.players, pId, cpuSettings.level);
+      }
+      const k = cpuKnowledgeRefs.current[pId];
+      k.updateFromState(state);
+      return k;
+    };
+
+    // 1. CPU decides stay or continue
+    if (state.phase === "continue" && curPlayer.isCpu) {
+      setIsThinking(true);
+      const timer = setTimeout(() => {
         if (isUnmounted) return;
-        if (state.mode === "pair") {
-          const newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex);
-          onGameStateChange(newState);
-          if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
-          return newState.lastAction?.type === "correct";
+        setIsThinking(false);
+        const k = getKnowledge(curPlayer.id);
+        if (shouldReattack(cpuSettings.level, k, state, curPlayer.id)) {
+           handleContinue();
         } else {
-          const newState = attack(state, action.targetPlayerIndex, action.targetCardIndex, action.guessNumber);
-          onGameStateChange(newState);
-          if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
-          return newState.lastAction?.type === "correct";
+           handleStay();
         }
-      },
-      onToss: (tossInfo) => {
+      }, 1000);
+      return () => { isUnmounted = true; clearTimeout(timer); };
+    }
+
+    // 2. CPU partner tosses card
+    if (state.phase === "pass_to_partner" && partner?.isCpu) {
+      setIsThinking(true);
+      const timer = setTimeout(() => {
         if (isUnmounted) return;
-        if (tossInfo.waitForConfirm) {
-          const newState = partnerToss(state, tossInfo.tossedCardInfo.cardIndex);
-          onGameStateChange(newState);
+        setIsThinking(false);
+        const k = getKnowledge(partner.id);
+        const tossedCardIdx = cpuSelectToss(cpuSettings.level, state, partner.id, curPlayer.id, k);
+        const newState = partnerToss(state, tossedCardIdx);
+        onGameStateChange(newState);
+      }, 1000);
+      return () => { isUnmounted = true; clearTimeout(timer); };
+    }
+
+    // 3. Skip "pass_back" screen if current player is CPU
+    if (state.phase === "pass_back" && curPlayer.isCpu) {
+       onGameStateChange(startAttackFromToss(state));
+       return;
+    }
+
+    // 4. CPU Draws
+    if (state.phase === "draw" && curPlayer.isCpu) {
+      setIsThinking(true);
+      const timer = setTimeout(() => {
+        if (isUnmounted) return;
+        setIsThinking(false);
+        handleDraw();
+      }, 800);
+      return () => { isUnmounted = true; clearTimeout(timer); };
+    }
+
+    // 5. CPU Attacks
+    if (state.phase === "attack" && curPlayer.isCpu) {
+      setIsThinking(true);
+      const timer = setTimeout(() => {
+        if (isUnmounted) return;
+        setIsThinking(false);
+        const k = getKnowledge(curPlayer.id);
+        const action = cpuDecide(cpuSettings.level, state, curPlayer.id, k, state.mode);
+        if (!action) { handleStay(); return; }
+        
+        let newState;
+        if (state.mode === "pair") {
+          newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex);
+        } else {
+          newState = attack(state, action.targetPlayerIndex, action.targetCardIndex, action.guessNumber);
         }
-      },
-      waitForConfirm: () => new Promise(res => setTimeout(res, 800)),
-    });
+        onGameStateChange(newState);
+        if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
+      }, 1500);
+      return () => { isUnmounted = true; clearTimeout(timer); };
+    }
 
     return () => { isUnmounted = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPlayer, state.phase]);
+  }, [currentPlayer, state.phase, state.tossedCard]);
 
   if (state.phase === "gameover") {
     return null;
@@ -1060,24 +1095,29 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     );
   }
 
-  // Pair mode extra phases
+  // Pair mode extra phases (skip screens for CPU players)
   if (state.mode === "pair") {
+    const partnerIdx = getPartnerIndex(state.players.length, currentPlayer);
+    const partner = state.players[partnerIdx];
+
     if (state.phase === "pass_to_partner") {
-      const partnerIdx = getPartnerIndex(state.players.length, currentPlayer);
-      const partnerName = state.players[partnerIdx].name;
-      return (
-        <PassScreen
-          playerName={partnerName}
-          message="さんに渡してください"
-          subMessage="トスをしてもらいます"
-          onReady={() => onGameStateChange({ ...state, phase: "partner_toss" })}
-        />
-      );
+      // If partner is CPU, don't show pass screen — let useEffect handle auto-toss
+      if (!partner?.isCpu) {
+        const partnerName = partner.name;
+        return (
+          <PassScreen
+            playerName={partnerName}
+            message="さんに渡してください"
+            subMessage="トスをしてもらいます"
+            onReady={() => onGameStateChange({ ...state, phase: "partner_toss" })}
+          />
+        );
+      }
+      // CPU partner: show thinking indicator on the game board (falls through to game board render)
     }
 
     if (state.phase === "partner_toss") {
-      const partnerIdx = getPartnerIndex(state.players.length, currentPlayer);
-      const partner = state.players[partnerIdx];
+      // This phase is only reached when partner is human
       return (
         <PartnerTossScreen
           partnerName={partner.name}
@@ -1091,18 +1131,21 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     }
 
     if (state.phase === "pass_back") {
-      const currentName = state.players[currentPlayer].name;
-      return (
-        <PassScreen
-          playerName={currentName}
-          message="さんに戻してください"
-          subMessage="攻撃を開始します"
-          onReady={() => {
-            const newState = startAttackFromToss(state);
-            onGameStateChange(newState);
-          }}
-        />
-      );
+      // If current player is CPU, skip pass_back screen (useEffect handles it)
+      if (!state.players[currentPlayer].isCpu) {
+        const currentName = state.players[currentPlayer].name;
+        return (
+          <PassScreen
+            playerName={currentName}
+            message="さんに戻してください"
+            subMessage="攻撃を開始します"
+            onReady={() => {
+              const newState = startAttackFromToss(state);
+              onGameStateChange(newState);
+            }}
+          />
+        );
+      }
     }
   }
 
