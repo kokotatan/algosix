@@ -97,7 +97,6 @@ export function Card({
     };
 
     return (
-    return (
       <div
         className={`card${animClass ? ` ${animClass}` : ""}`}
         style={faceStyle}
@@ -127,7 +126,6 @@ export function Card({
           </span>
         )}
       </div>
-    );
     );
   }
 
