@@ -339,7 +339,7 @@ export function DeckStack({ count, drawnCard, showDrawn, animClass = "", showCom
               color: C.gray3,
             }}
           >
-            空
+            EMPTY
           </div>
         )}
       </div>
