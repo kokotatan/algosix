@@ -87,7 +87,8 @@ export function useFirebaseMultiplayer() {
 
       // Set room meta
       set(ref(db, `rooms/${roomId}/meta`), {
-        maxPlayers: payload.maxPlayers,
+        playerCount: payload.playerCount,
+        mode: payload.mode,
         hostId: selfId,
         createdAt: Date.now()
       }).then(() => {

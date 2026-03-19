@@ -1813,7 +1813,7 @@ export default function AlgoApp() {
     
     // Slight delay to ensure connection is ready before emitting
     setTimeout(() => {
-      emit("create_room", { name: config.name, maxPlayers: config.playerCount });
+      emit("create_room", { name: config.name, playerCount: config.playerCount, mode: config.mode });
     }, 500);
   }, [connect, emit]);
 
