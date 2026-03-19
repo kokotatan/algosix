@@ -1587,35 +1587,40 @@ function ResultScreen({ state, onBackToMenu, onlineContext }) {
         <div
           className="win-badge"
           style={{
-            width: 100,
-            height: 100,
-            border: `3px solid ${C.black}`,
+            width: 120,
+            height: 120,
+            border: "4px solid var(--black)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 24,
+            fontSize: 42,
             fontWeight: 900,
             fontFamily: "'Inter', sans-serif",
             borderRadius: "50%",
-            background: C.black,
-            color: C.white,
+            background: "var(--white)",
+            color: "var(--black)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+            position: "relative"
           }}
         >
-          WINNER
+          <span style={{ position: "absolute", top: -20, fontSize: 32 }}>👑</span>
+          WIN
         </div>
         <h2
           className="win-name"
           style={{
-            fontSize: 30,
+            fontSize: 36,
             fontWeight: 900,
-            color: C.black,
-            fontFamily: "'Noto Sans JP', sans-serif",
-            margin: 0,
+            color: "var(--black)",
+            fontFamily: "'Inter', sans-serif",
+            margin: "0 0 8px",
             textAlign: "center",
+            letterSpacing: "-0.02em"
           }}
         >
-          {winnerPlayer.name} の勝利！
+          {winnerPlayer.name}
         </h2>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gray4)", marginBottom: 12 }}>HAS WON THE GAME</div>
 
         {/* Sequenced card reveals */}
         <div className="win-hands">
