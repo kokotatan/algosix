@@ -747,23 +747,32 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   };
 
   const handleAttack = () => {
+    if (!selectedTarget) return;
+
+    // selectedTarget.player は player.id（文字列IDの場合あり）なので
+    // gameLogic が期待する数値インデックスに変換する
+    const targetPlayerIndex = state.players.findIndex(
+      p => String(p.id) === String(selectedTarget.player)
+    );
+    if (targetPlayerIndex === -1) return;
+
     if (state.mode === "pair") {
-      if (!selectedTarget || selectedOwnCard === null || guessNumber === null) return;
-      dispatchAction("pairAttack", { 
-        targetPlayer: selectedTarget.player, 
-        targetCard: selectedTarget.card, 
-        ownCard: selectedOwnCard, 
-        guessNumber: guessNumber 
+      if (selectedOwnCard === null || guessNumber === null) return;
+      dispatchAction("pairAttack", {
+        targetPlayer: targetPlayerIndex,
+        targetCard: selectedTarget.card,
+        ownCard: selectedOwnCard,
+        guessNumber: guessNumber,
       });
       setSelectedTarget(null);
       setSelectedOwnCard(null);
       setGuessNumber(null);
     } else {
-      if (!selectedTarget || guessNumber === null) return;
-      dispatchAction("attack", { 
-        targetPlayer: selectedTarget.player, 
-        targetCard: selectedTarget.card, 
-        guessNumber: guessNumber 
+      if (guessNumber === null) return;
+      dispatchAction("attack", {
+        targetPlayer: targetPlayerIndex,
+        targetCard: selectedTarget.card,
+        guessNumber: guessNumber,
       });
       setSelectedTarget(null);
       setGuessNumber(null);

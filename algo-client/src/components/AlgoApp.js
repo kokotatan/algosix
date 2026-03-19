@@ -133,7 +133,7 @@ export default function AlgoApp() {
       const cpuConfig = {};
       for (let i = 0; i < cpuCount; i++) {
         const idx = finalNames.length;
-        finalNames.push({ id: `cpu_${i}`, name: `CPU ${i + 1}` });
+        finalNames.push(`CPU ${i + 1}`);
         cpuConfig[idx] = true;
       }
       cpuOpts = { level: "normal", cpuConfig };

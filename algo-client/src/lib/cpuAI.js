@@ -8,19 +8,22 @@ export class CpuKnowledge {
     this.initCandidates(players);
   }
 
+  // candidates をオブジェクト（p.id キー）で管理することで
+  // 文字列IDのプレイヤー（オンライン人間プレイヤー）にも対応する
   initCandidates(players) {
-    this.candidates = players.map(p =>
-      p.hand.map(() => new Set(Array.from({ length: 12 }, (_, i) => i)))
-    );
+    this.candidates = {};
+    players.forEach(p => {
+      this.candidates[p.id] = p.hand.map(() =>
+        new Set(Array.from({ length: 12 }, (_, i) => i))
+      );
+    });
   }
 
   updateFromState(game) {
     if (this.level === 'easy') return;
 
-    // Reset and recalculate based entirely on current board state
-    // This removes the need for step-by-step stateful tracking of reveals
     this.initCandidates(game.players);
-    
+
     // 1. Collect all known cards
     const knownCards = [];
     game.players.forEach(p => {
@@ -28,8 +31,6 @@ export class CpuKnowledge {
         let isKnown = false;
         if (p.id === this.mySeatIndex) isKnown = true;
         if (c.revealed) isKnown = true;
-        // If partner in pair mode, and card was tossed (we'll detect it if c.number is not undefined in state, wait, client state might not have number if not revealed unless it's tossed. 
-        // Actually tossedCard is in game.tossedCard but wait, let's just check c.number !== undefined)
         if (c.number !== undefined) isKnown = true;
 
         if (isKnown) {
@@ -54,27 +55,21 @@ export class CpuKnowledge {
     // 3. Iterative Left-to-Right Sorting Constraints
     let changed = true;
     let iterations = 0;
-    while(changed && iterations < 20) {
+    while (changed && iterations < 20) {
       changed = false;
       iterations++;
-      
+
       game.players.forEach(p => {
         for (let i = 0; i < p.hand.length - 1; i++) {
           const candsLeft = this.candidates[p.id][i];
-          const candsRight = this.candidates[p.id][i+1];
+          const candsRight = this.candidates[p.id][i + 1];
           if (candsLeft.size === 0 || candsRight.size === 0) continue;
 
           const maxRight = Math.max(...candsRight);
           const minLeft = Math.min(...candsLeft);
           const colL = p.hand[i].color;
-          const colR = p.hand[i+1].color;
+          const colR = p.hand[i + 1].color;
 
-          // Black < White if numbers are equal, so White and Black of same number exist.
-          // hand is sorted ascending. Tie breaks: Black is left of White.
-          // L=Black, R=White => L <= R
-          // L=White, R=Black => L < R
-          // L=Black, R=Black => L < R
-          // L=White, R=White => L < R
           const isStrict = !(colL === 'black' && colR === 'white');
 
           for (let val of Array.from(candsLeft)) {
@@ -95,7 +90,6 @@ export class CpuKnowledge {
     }
   }
 
-  // To be called from outside for HARD difficulty (tracking past wrong guesses)
   onWrongGuess(targetPlayer, targetCard, guessNumber) {
     if (this.level !== 'hard') return;
     if (this.candidates[targetPlayer] && this.candidates[targetPlayer][targetCard]) {
@@ -104,53 +98,71 @@ export class CpuKnowledge {
   }
 }
 
+// ─── ヘルパー：p.id ではなく配列インデックスでチームを判定する ───
+function getTeamByIdx(idx) {
+  return idx % 2 === 0 ? "A" : "B";
+}
+
+// 敵エントリー配列: [{ p: playerObj, i: arrayIndex }]
+function buildEnemyEntries(game, mySeat, mode) {
+  const myIdx = typeof mySeat === "number"
+    ? mySeat
+    : game.players.findIndex(p => String(p.id) === String(mySeat));
+  const myTeam = mode === "pair" ? getTeamByIdx(myIdx) : null;
+
+  return game.players
+    .map((p, i) => ({ p, i }))
+    .filter(({ p, i }) =>
+      mode === "pair"
+        ? getTeamByIdx(i) !== myTeam
+        : String(p.id) !== String(mySeat)
+    );
+}
+
 // ターゲットの選択
 export function selectTargetCard(level, game, mySeat, knowledge) {
   const mode = game.mode || "individual";
-  const myTeam = mode === "pair" ? (mySeat % 2 === 0 ? "A" : "B") : null;
-  
-  // 敵の伏せカード一覧を作成
-  const enemies = mode === "pair" 
-    ? game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam)
-    : game.players.filter(p => p.id !== mySeat);
+  const enemyEntries = buildEnemyEntries(game, mySeat, mode);
 
   const candidates = [];
-  enemies.forEach(enemy => {
+  enemyEntries.forEach(({ p: enemy, i: enemyIdx }) => {
     enemy.hand.forEach((card, ci) => {
       if (!card.revealed) {
-        candidates.push({ playerIndex: enemy.id, cardIndex: ci, card });
+        candidates.push({ playerIndex: enemyIdx, cardIndex: ci, card });
       }
     });
   });
 
   if (candidates.length === 0) return null;
-
-  // 簡単のためランダム選択（NORMAL/HARDでは候補数の少ないものや確率依存で選ぶ）
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // 宣言数字の決定
 export function selectGuessNumber(level, targetCard, knowledge) {
-  const cands = Array.from(knowledge.candidates[targetCard.playerIndex][targetCard.cardIndex]);
+  const playerId = targetCard.playerId; // selectTargetCard で付与するか、既存の playerIndex からIDを逆引き
+  const cands = knowledge.candidates[targetCard.playerId]
+    ? Array.from(knowledge.candidates[targetCard.playerId][targetCard.cardIndex])
+    : [];
   if (cands.length === 0) return Math.floor(Math.random() * 12);
   return cands[Math.floor(Math.random() * cands.length)];
 }
 
-// ターゲットと宣言数字の選定ロジック (NORMAL / HARD)
-function getBestAttackIndividual(knowledge, enemies) {
+// NORMAL / HARD 用：候補数が最小の敵カードを選ぶ
+function getBestAttackIndividual(knowledge, enemyEntries) {
   let bestCards = [];
   let minCandsSize = 999;
 
-  enemies.forEach(enemy => {
+  enemyEntries.forEach(({ p: enemy, i: enemyIdx }) => {
     enemy.hand.forEach((card, ci) => {
       if (!card.revealed) {
-        const cands = knowledge.candidates[enemy.id][ci];
+        const cands = knowledge.candidates[enemy.id]?.[ci];
+        if (!cands) return;
         const size = cands.size;
         if (size > 0 && size < minCandsSize) {
           minCandsSize = size;
-          bestCards = [{ playerIndex: enemy.id, cardIndex: ci, cands }];
+          bestCards = [{ playerIndex: enemyIdx, cardIndex: ci, cands }];
         } else if (size > 0 && size === minCandsSize) {
-          bestCards.push({ playerIndex: enemy.id, cardIndex: ci, cands });
+          bestCards.push({ playerIndex: enemyIdx, cardIndex: ci, cands });
         }
       }
     });
@@ -164,28 +176,29 @@ function getBestAttackIndividual(knowledge, enemies) {
   return {
     targetPlayerIndex: picked.playerIndex,
     targetCardIndex: picked.cardIndex,
-    guessNumber
+    guessNumber,
   };
 }
 
-function getBestAttackPair(knowledge, enemies, myHand, myHiddenCards) {
+function getBestAttackPair(knowledge, enemyEntries, myHand, myHiddenCards) {
   let bestMatch = null;
   let minCandsSize = 999;
 
-  enemies.forEach(enemy => {
+  enemyEntries.forEach(({ p: enemy, i: enemyIdx }) => {
     enemy.hand.forEach((card, ci) => {
       if (!card.revealed) {
-        const cands = knowledge.candidates[enemy.id][ci];
+        const cands = knowledge.candidates[enemy.id]?.[ci];
+        if (!cands) return;
         const size = cands.size;
         if (size > 0 && size < minCandsSize) {
           minCandsSize = size;
           const myPicked = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)];
           const candArr = Array.from(cands);
           bestMatch = {
-            targetPlayerIndex: enemy.id,
+            targetPlayerIndex: enemyIdx,
             targetCardIndex: ci,
             myCardIndex: myPicked.index,
-            guessNumber: candArr[Math.floor(Math.random() * candArr.length)]
+            guessNumber: candArr[Math.floor(Math.random() * candArr.length)],
           };
         }
       }
@@ -193,18 +206,21 @@ function getBestAttackPair(knowledge, enemies, myHand, myHiddenCards) {
   });
 
   if (bestMatch) return bestMatch;
-  return cpuDecidePairEASY(enemies, myHiddenCards, knowledge);
+  return cpuDecidePairEASY(enemyEntries, myHiddenCards, knowledge);
 }
 
-function cpuDecidePairEASY(enemies, myHiddenCards, knowledge) {
+function cpuDecidePairEASY(enemyEntries, myHiddenCards, knowledge) {
   const cands = [];
-  enemies.forEach(e => e.hand.forEach((c, ci) => { if (!c.revealed) cands.push({ p: e.id, c: ci }); }));
+  enemyEntries.forEach(({ p: e, i: eIdx }) => {
+    e.hand.forEach((c, ci) => {
+      if (!c.revealed) cands.push({ p: e.id, pIdx: eIdx, c: ci });
+    });
+  });
   if (cands.length === 0 || myHiddenCards.length === 0) return null;
-  
+
   const target = cands[Math.floor(Math.random() * cands.length)];
   const myCard = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)];
-  
-  // Generate a random guess number (or from candidates if available)
+
   let guessNumber;
   if (knowledge) {
     const targetCands = knowledge.candidates[target.p]?.[target.c];
@@ -219,20 +235,17 @@ function cpuDecidePairEASY(enemies, myHiddenCards, knowledge) {
   }
 
   return {
-    targetPlayerIndex: target.p,
+    targetPlayerIndex: target.pIdx,
     targetCardIndex: target.c,
     myCardIndex: myCard.index,
-    guessNumber
+    guessNumber,
   };
 }
 
 // CPUの個人戦アタック決定
 export function cpuDecideIndividual(level, game, mySeat, knowledge) {
   const mode = game.mode || "individual";
-  const myTeam = mode === "pair" ? (mySeat % 2 === 0 ? "A" : "B") : null;
-  const enemies = mode === "pair" 
-    ? game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam)
-    : game.players.filter(p => p.id !== mySeat);
+  const enemyEntries = buildEnemyEntries(game, mySeat, mode);
 
   if (level === "easy") {
     const targetCard = selectTargetCard(level, game, mySeat, knowledge);
@@ -244,23 +257,25 @@ export function cpuDecideIndividual(level, game, mySeat, knowledge) {
     };
   }
 
-  return getBestAttackIndividual(knowledge, enemies);
+  return getBestAttackIndividual(knowledge, enemyEntries);
 }
 
 // CPUのペア戦アタック決定
 export function cpuDecidePair(level, game, mySeat, knowledge) {
-  const myTeam = mySeat % 2 === 0 ? "A" : "B";
-  const enemies = game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam);
-  const myHand = game.players[mySeat].hand;
+  const enemyEntries = buildEnemyEntries(game, mySeat, "pair");
+  const myIdx = typeof mySeat === "number"
+    ? mySeat
+    : game.players.findIndex(p => String(p.id) === String(mySeat));
+  const myHand = game.players[myIdx].hand;
   const myHiddenCards = myHand.map((c, i) => ({ card: c, index: i })).filter(({ card }) => !card.revealed);
 
   if (myHiddenCards.length === 0) return null;
 
   if (level === "easy") {
-    return cpuDecidePairEASY(enemies, myHiddenCards);
+    return cpuDecidePairEASY(enemyEntries, myHiddenCards, knowledge);
   }
 
-  return getBestAttackPair(knowledge, enemies, myHand, myHiddenCards);
+  return getBestAttackPair(knowledge, enemyEntries, myHand, myHiddenCards);
 }
 
 export function cpuDecide(level, game, mySeat, knowledge, mode) {
@@ -270,34 +285,31 @@ export function cpuDecide(level, game, mySeat, knowledge, mode) {
 
 // CPUがトスするカードを選択
 export function cpuSelectToss(level, game, mySeat, currentSeat, knowledge) {
-  const myHand = game.players[mySeat].hand;
+  const myIdx = typeof mySeat === "number"
+    ? mySeat
+    : game.players.findIndex(p => String(p.id) === String(mySeat));
+  const myHand = game.players[myIdx].hand;
   const myHiddenIndices = myHand
     .map((c, i) => (c.revealed ? null : i))
     .filter(i => i !== null);
 
   if (myHiddenIndices.length === 0) return null;
-
-  // 簡単のためランダム
   return myHiddenIndices[Math.floor(Math.random() * myHiddenIndices.length)];
 }
 
 // 再アタック判断
 export function shouldReattack(level, knowledge, game, mySeat) {
   if (level === "easy") return Math.random() > 0.5;
-  
-  // NORMAL/HARD: if there's a 100% certain guess, keep going. Pick best size.
+
   const mode = game.mode || "individual";
-  const myTeam = mode === "pair" ? (mySeat % 2 === 0 ? "A" : "B") : null;
-  const enemies = mode === "pair" 
-    ? game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam)
-    : game.players.filter(p => p.id !== mySeat);
+  const enemyEntries = buildEnemyEntries(game, mySeat, mode);
 
   let minCandsSize = 999;
-  enemies.forEach(enemy => {
+  enemyEntries.forEach(({ p: enemy }) => {
     enemy.hand.forEach((card, ci) => {
       if (!card.revealed) {
-        const cands = knowledge.candidates[enemy.id][ci];
-        if (cands.size < minCandsSize) minCandsSize = cands.size;
+        const cands = knowledge.candidates[enemy.id]?.[ci];
+        if (cands && cands.size < minCandsSize) minCandsSize = cands.size;
       }
     });
   });
@@ -321,23 +333,20 @@ export async function runCpuTurn(game, mySeat, knowledge, level, mode, callbacks
     const partner = game.players[partnerSeat];
 
     if (partner.isCpu) {
-      // パートナー(CPU)が現在のプレイヤー(自分自身はCPUでも人間でも)にトスする
       onToss({ thinking: true });
       await sleep(600 + Math.random() * 400);
       const tossedCardIdx = cpuSelectToss(level, game, partnerSeat, mySeat, knowledge);
-      
+
       const tossedCardObj = partner.hand[tossedCardIdx];
       const tossedCardInfo = { color: tossedCardObj.color, number: tossedCardObj.number, cardIndex: tossedCardIdx };
 
-      // トス結果を表示して確認待ち
       onToss({ thinking: false, tossedCardInfo, waitForConfirm: true });
-      
+
       if (waitForConfirm) {
-        await waitForConfirm(); 
+        await waitForConfirm();
       }
     } else {
-      // パートナーが人間なら、通常のスマホ回しUI処理に委ねる
-      return; 
+      return;
     }
   }
 
@@ -347,17 +356,15 @@ export async function runCpuTurn(game, mySeat, knowledge, level, mode, callbacks
   setThinking(false);
 
   const action = cpuDecide(level, game, mySeat, knowledge, mode);
-  if (!action) return; // やれることがない(終了時など)
+  if (!action) return;
 
   const correct = await onAction(action);
 
-  // 再アタック判断
   if (correct && game.phase !== "gameover" && shouldReattack(level, knowledge, game, mySeat)) {
     await sleep(600);
     return runCpuTurn(game, mySeat, knowledge, level, mode, callbacks);
   } else if (correct && game.phase !== "gameover") {
     await sleep(600);
-    // ステイ
     await onAction({ type: "stay" });
   }
 }
