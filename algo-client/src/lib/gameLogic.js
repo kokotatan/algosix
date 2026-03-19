@@ -93,15 +93,17 @@ export function initGame(playerNames, mode = "individual", cpuSettings = []) {
     : getInitialHandSize(playerCount);
 
   let di = 0;
-  const players = playerNames.map((name, i) => {
+  const players = playerNames.map((p, i) => {
+    const name = typeof p === "string" ? p : p.name;
+    const id = typeof p === "string" ? i : (p.id !== undefined ? p.id : i);
     const hand = sortHand(deck.slice(di, di + handSize));
     di += handSize;
     return { 
-      id: i, 
+      id, 
       name, 
       hand, 
       isOut: false,
-      isCpu: cpuSettings[i] || false,
+      isCpu: cpuSettings[i] || (p && p.isCpu) || false,
     };
   });
 

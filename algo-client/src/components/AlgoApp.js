@@ -896,10 +896,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   const state = gameState;
   const currentPlayer = state.currentPlayer;
   
-  const isOnlinePeer = onlineContext && onlineContext.roomId && !onlineContext.isHost;
-  const currentViewPlayer = isOnlinePeer 
-    ? state.players.findIndex(p => p.id === onlineContext.selfId) 
-    : currentPlayer;
+  const myIndex = state?.players?.findIndex(p => p.id === selfId) ?? 0;
+  const currentViewPlayer = myIndex;
     
   const cardSize = getCardSize(playerNames.length);
 
@@ -965,9 +963,10 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     if (!onlineContext || !isHost || !state) return;
 
     onlinePlayers.forEach(p => {
+      const targetId = p.id === "self" ? socket.id : p.id;
       if (p.isHost) return; // Skip self
       
-      const pIndex = state.players.findIndex(sp => sp.name === p.name);
+      const pIndex = state.players.findIndex(sp => sp.id === targetId);
       const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
       
       maskedState.players.forEach((sp, i) => {
@@ -979,6 +978,10 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           });
         }
       });
+      // Mask drawn card if it's not the peer's turn
+      if (state.currentPlayer !== pIndex && maskedState.drawnCard) {
+        maskedState.drawnCard.number = null;
+      }
       emit("host_sync_state", { roomId, targetId: p.id, state: maskedState });
     });
   }, [state, isHost, onlineContext, onlinePlayers, emit, roomId]);
@@ -1269,6 +1272,16 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
 
   return (
     <ScreenWrapper showGeo={false}>
+      {/* Stamp Flow Overlay */}
+      <div className="stamp-overlay">
+        {onlinePlayers.map(p => p.lastStamp && (
+          <div key={p.lastStamp.ts} className="stamp-item-flow">
+            <span style={{ fontSize: 10, opacity: 0.6, marginRight: 8 }}>{p.name}</span>
+            {STAMPS.find(s => s.id === p.lastStamp.id)?.label || p.lastStamp.id}
+          </div>
+        ))}
+      </div>
+
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
 
       {/* Home confirm dialog */}
@@ -1385,7 +1398,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             alignItems: "center",
             gap: 4
           }}>
-            <span style={{ fontSize: 12 }}>🎴</span> {state.deck.length}
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gray4)", opacity: 0.8 }}>DECK</span> {state.deck.length}
           </div>
         </div>
         
@@ -1413,34 +1426,34 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           <button
             onClick={() => setShowRules(true)}
             style={{
-              width: 32, height: 32,
-              borderRadius: "50%",
+              padding: "4px 12px",
+              borderRadius: "20px",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
-              transition: "all 0.2s"
+              fontSize: 10,
+              fontWeight: 800,
+              color: "var(--gray4)",
+              fontFamily: "'Inter', sans-serif"
             }}
-            title="ルール"
           >
-            📋
+            RULES
           </button>
           <button
             onClick={() => setShowHomeConfirm(true)}
             style={{
-              width: 32, height: 32,
-              borderRadius: "50%",
+              padding: "4px 12px",
+              borderRadius: "20px",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
-              transition: "all 0.2s"
+              fontSize: 10,
+              fontWeight: 800,
+              color: "var(--gray4)",
+              fontFamily: "'Inter', sans-serif"
             }}
-            title="ホーム"
           >
-            🏠
+            HOME
           </button>
         </div>
       </div>
@@ -1859,7 +1872,10 @@ export default function AlgoApp() {
 
   const handleOnlineHostStart = useCallback(() => {
     if (!isHost) return;
-    const names = onlinePlayers.map(p => p.name);
+    const names = onlinePlayers.map(p => ({ 
+      id: p.id === "self" ? selfId : p.id, 
+      name: p.name 
+    }));
     // TODO: if length < maxPlayers, fill with CPUs...
     // For now assume it requires full real players or host starts anyway
     // Wait, the onlineConfig has playerCount and mode.
