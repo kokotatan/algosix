@@ -78,12 +78,20 @@ export function useFirebaseMultiplayer() {
       const roomRef = ref(db, `rooms/${roomId}`);
       const myPlayerRef = ref(db, `rooms/${roomId}/players/${selfId}`);
 
+      // Firebase connection timeout to prevent hanging on bad URL
+      const timeoutId = setTimeout(() => {
+        trigger("error", { message: "通信タイムアウト: Firebaseとの接続に失敗しました。\n\n※.env.local の NEXT_PUBLIC_FIREBASE_DATABASE_URL が正しく設定されているか確認してください。" });
+        connectionRef.current.roomId = null;
+        connectionRef.current.isHost = false;
+      }, 5000);
+
       // Set room meta
       set(ref(db, `rooms/${roomId}/meta`), {
         maxPlayers: payload.maxPlayers,
         hostId: selfId,
         createdAt: Date.now()
       }).then(() => {
+        clearTimeout(timeoutId);
         // Add self to players
         return set(myPlayerRef, {
           id: selfId,
@@ -141,8 +149,15 @@ export function useFirebaseMultiplayer() {
       connectionRef.current.roomId = roomId;
       connectionRef.current.isHost = false;
       
+      // Firebase connection timeout to prevent hanging on bad URL
+      const timeoutId = setTimeout(() => {
+        trigger("error", { message: "通信タイムアウト: Firebaseとの接続に失敗しました。\n\n※.env.local の NEXT_PUBLIC_FIREBASE_DATABASE_URL が正しく設定されているか確認してください。" });
+        connectionRef.current.roomId = null;
+      }, 5000);
+
       const roomMetaRef = ref(db, `rooms/${roomId}/meta`);
       get(roomMetaRef).then((snapshot) => {
+        clearTimeout(timeoutId);
         if (!snapshot.exists()) {
           trigger("error", { message: "ルームが見つかりません" });
           return;
