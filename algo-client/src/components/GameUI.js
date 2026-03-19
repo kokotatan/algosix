@@ -97,6 +97,7 @@ export function Card({
     };
 
     return (
+    return (
       <div
         className={`card${animClass ? ` ${animClass}` : ""}`}
         style={faceStyle}
@@ -109,21 +110,24 @@ export function Card({
           <span
             style={{
               position: "absolute",
-              top: 2,
-              right: 3,
-              fontSize: 7,
-              background: C.red,
+              top: -6,
+              right: -6,
+              fontSize: 8,
+              background: "var(--red)",
               color: "#fff",
-              padding: "1px 3px",
-              borderRadius: 2,
-              fontWeight: 700,
+              padding: "2px 5px",
+              borderRadius: "10px",
+              fontWeight: 800,
               letterSpacing: 0.5,
+              border: "1.5px solid #fff",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
             }}
           >
             OPEN
           </span>
         )}
       </div>
+    );
     );
   }
 
@@ -377,17 +381,18 @@ export function NumberSelector({ value, onChange, disabled }) {
           disabled={disabled}
           onClick={() => !disabled && onChange(i)}
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 0,
-            border: `2px solid ${C.black}`,
-            background: value === i ? C.black : C.white,
-            color: value === i ? C.white : C.black,
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            border: `2px solid ${value === i ? "var(--black)" : "var(--gray2)"}`,
+            background: value === i ? "var(--black)" : "var(--white)",
+            color: value === i ? "var(--white)" : "var(--black)",
             fontSize: 16,
-            fontWeight: 700,
+            fontWeight: 800,
             fontFamily: "'Inter', sans-serif",
             cursor: "pointer",
-            transition: "all 0.15s",
+            transition: "all 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+            transform: value === i ? "scale(1.1)" : "none"
           }}
         >
           {i}
@@ -416,31 +421,35 @@ export function ActionPanel({
   disabled,
 }) {
   const panelStyle = {
-    background: C.white,
-    border: `2px solid ${C.black}`,
-    padding: "12px 16px",
+    background: "rgba(255,255,255,0.9)",
+    backdropFilter: "blur(10px)",
+    border: "2px solid var(--black)",
+    borderRadius: "24px",
+    padding: "20px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
     width: "100%",
     maxWidth: 400,
+    boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
   };
 
   const btnStyle = (filled = true, isDisabled = false) => {
     const finalDisabled = disabled || isDisabled;
     return {
-      padding: "10px 24px",
-      borderRadius: 0,
-      border: `2px solid ${finalDisabled ? C.gray2 : C.black}`,
-      background: finalDisabled ? C.gray1 : filled ? C.black : C.white,
-      color: finalDisabled ? C.gray3 : filled ? C.white : C.black,
+      padding: "14px 28px",
+      borderRadius: "30px",
+      border: `2px solid ${finalDisabled ? "var(--gray2)" : "var(--black)"}`,
+      background: finalDisabled ? "var(--gray1)" : filled ? "var(--black)" : "var(--white)",
+      color: finalDisabled ? "var(--gray3)" : filled ? "var(--white)" : "var(--black)",
       fontSize: 15,
-      fontWeight: 700,
+      fontWeight: 800,
       fontFamily: "'Noto Sans JP', sans-serif",
       cursor: finalDisabled ? "not-allowed" : "pointer",
-      transition: "all 0.2s",
-      minWidth: 100,
+      transition: "all 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+      minWidth: 140,
+      boxShadow: filled && !finalDisabled ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
     };
   };
 

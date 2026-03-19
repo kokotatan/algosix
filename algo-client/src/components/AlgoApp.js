@@ -118,27 +118,29 @@ function MenuScreen({ onNavigate }) {
         }}
       >
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "var(--gray3)", letterSpacing: "0.2em", marginBottom: 4 }}>WELCOME TO</div>
           <h1
             style={{
-              fontSize: 52,
+              fontSize: 64,
               fontWeight: 900,
               fontFamily: "'Inter', sans-serif",
-              color: C.black,
-              letterSpacing: -3,
+              color: "var(--black)",
+              letterSpacing: -4,
               margin: 0,
-              lineHeight: 1,
+              lineHeight: 0.9,
             }}
           >
             ALGOSIX
           </h1>
           <p
             style={{
-              fontSize: 14,
-              color: C.gray4,
-              fontFamily: "'Noto Sans JP', sans-serif",
-              margin: "8px 0 0",
-              letterSpacing: 4,
+              fontSize: 12,
+              color: "var(--gray4)",
+              fontWeight: 700,
+              margin: "12px 0 0",
+              letterSpacing: 6,
+              opacity: 0.8
             }}
           >
             論理カードゲーム
@@ -150,16 +152,16 @@ function MenuScreen({ onNavigate }) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 12,
+            gap: 14,
             width: "100%",
             maxWidth: 320,
           }}
         >
           <OutlinedButton
             onClick={() => onNavigate("tutorial")}
-            style={{ padding: "18px 24px", fontSize: 18 }}
+            style={{ height: 60, fontSize: 16, borderRadius: "30px" }}
           >
-            初めての方はこちら
+            🕹️ 初めての方はこちら
           </OutlinedButton>
 
           <OutlinedButton
