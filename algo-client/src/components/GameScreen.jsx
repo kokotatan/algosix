@@ -346,7 +346,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       </div>
     );
   }
-  const { isHost, roomId, socket, emit, on, off, onlinePlayers = [] } = onlineContext || {};
+  const { isHost, roomId, socket, emit, on, off, onlinePlayers = [], stateFromFirebaseRef } = onlineContext || {};
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedOwnCard, setSelectedOwnCard] = useState(null);
   const [guessNumber, setGuessNumber] = useState(null);
@@ -442,23 +442,39 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
   // --- ONLINE STATE SYNC LOGIC ---
 
-  // Host: Broadcast masked state to peers whenever state changes
+  // Host: Broadcast masked state to all players (including self) whenever state changes.
+  // stateFromFirebaseRef guards against infinite loop:
+  //   local action → setGameState → effect fires → write to Firebase
+  //   → Firebase triggers sync_state → AlgoApp sets stateFromFirebaseRef=true → setGameState
+  //   → effect fires → sees stateFromFirebaseRef=true → SKIP (no re-write)
   useEffect(() => {
     if (!onlineContext || !isHost || !state) return;
 
+    // If this state update came FROM Firebase, skip writing back to avoid infinite loop.
+    if (stateFromFirebaseRef?.current) {
+      stateFromFirebaseRef.current = false;
+      return;
+    }
+
+    // Write host's own state (unmasked — host sees all cards)
+    if (selfId) {
+      emit("host_sync_state", { roomId, targetId: selfId, state });
+    }
+
+    // Write masked state for each peer
     onlinePlayers.forEach(p => {
-      if (p.isHost) return; // Skip self syncing as host
-      
+      if (p.isHost) return; // Already written above
+
       const targetId = p.id;
       if (!targetId) {
         console.warn("HOST_SYNC: Player ID is missing in onlinePlayers", p);
         return;
       }
-      
+
       const pIndex = state.players.findIndex(sp => String(sp.id) === String(targetId));
       if (pIndex === -1) {
-        console.warn("HOST_SYNC: Peer not found in state", { 
-          targetId, 
+        console.warn("HOST_SYNC: Peer not found in state", {
+          targetId,
           playerIdsInState: state.players.map(x=>x.id),
           onlinePlayers: onlinePlayers.map(x=>({id:x.id, name:x.name}))
         });
@@ -466,7 +482,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       }
 
       const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
-      
+
       maskedState.players.forEach((sp, i) => {
         if (i !== pIndex) {
           sp.hand.forEach(c => {
@@ -482,7 +498,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       }
       emit("host_sync_state", { roomId, targetId: p.id, state: maskedState });
     });
-  }, [state, isHost, onlineContext, onlinePlayers, emit, roomId]);
+  }, [state, isHost, onlineContext, onlinePlayers, emit, roomId, selfId, stateFromFirebaseRef]);
 
   // --- ACTION DISPATCHER ---
   const dispatchAction = useCallback((actionType, payload) => {
@@ -522,7 +538,9 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           break;
       }
       
-      if (newState.phase === "gameover") {
+      // In online mode, gameover is handled via sync_state arriving from Firebase
+      // (AlgoApp's sync_state handler calls handleGameEnd). For offline, handle locally.
+      if (newState.phase === "gameover" && !onlineContext?.roomId) {
          setTimeout(() => onGameEnd(newState), 800);
       }
       return newState;

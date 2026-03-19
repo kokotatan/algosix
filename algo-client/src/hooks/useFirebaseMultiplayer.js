@@ -155,6 +155,16 @@ export function useFirebaseMultiplayer() {
         
         // Listen for peer actions (Host only)
         registerActionsListener(roomId);
+
+        // Host also listens to own state via Firebase (same as peers).
+        // This ensures host and peers go through the same sync_state code path.
+        const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
+        const unsubHostState = onValue(myStateRef, (ssnap) => {
+          if (ssnap.exists()) {
+            trigger("sync_state", ssnap.val());
+          }
+        });
+        unsubscribeFuncs.current.push(unsubHostState);
       }).catch((err) => {
         trigger("error", { message: "ルーム作成に失敗しました: " + err.message });
         connectionRef.current.roomId = null;

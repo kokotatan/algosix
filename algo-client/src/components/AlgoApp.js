@@ -34,6 +34,10 @@ export default function AlgoApp() {
   const { connected, socket, selfId, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
   const [onlineRoomId, setOnlineRoomId] = useState(null);
 
+  // Ref to signal GameScreen that the latest state update came from Firebase (not local computation).
+  // GameScreen uses this to skip re-syncing state that was just received from Firebase (prevents infinite loop).
+  const stateFromFirebaseRef = useRef(false);
+
   // Sync room ID with URL
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -76,7 +80,7 @@ export default function AlgoApp() {
     connect();
     setIsHost(true);
     setOnlineConfig({ playerCount: config.playerCount, mode: config.mode });
-    setOnlinePlayers([{ id: "self", name: config.name, isHost: true }]); // Optimistic UI
+    setOnlinePlayers([{ id: selfId, name: config.name, isHost: true, connected: true, seatIndex: 0 }]); // Optimistic UI
     
     // Slight delay to ensure connection is ready before emitting
     setTimeout(() => {
@@ -202,10 +206,15 @@ export default function AlgoApp() {
     });
 
     on("game_started", () => {
-      setScreen("game");
+      // Use functional form: host already called handleStartGame (which sets screen to "game"),
+      // so this becomes a no-op for host. Peers use this to navigate to the game screen.
+      setScreen(s => s === "game" ? s : "game");
     });
 
     on("sync_state", (newState) => {
+      // Mark this state as coming from Firebase so GameScreen's host sync effect
+      // skips writing it back to Firebase (prevents infinite loop).
+      stateFromFirebaseRef.current = true;
       setGameState(newState);
       if (newState.phase !== "gameover" && screen !== "game") {
         setScreen("game");
@@ -278,7 +287,7 @@ export default function AlgoApp() {
                 onHome={handleBackToMenu}
                 playerNames={playerNames}
                 cpuSettings={cpuSettings}
-                onlineContext={{ isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers }}
+                onlineContext={{ isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef }}
                 selfId={selfId}
               />
             );
