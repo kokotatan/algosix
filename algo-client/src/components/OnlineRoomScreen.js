@@ -2,17 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ScreenWrapper, OutlinedButton } from "./UXComponents";
 import { STAMPS } from "../lib/stamps";
 
-function ConnDot({ connected }) {
-  return (
-    <span style={{
-      width: 8, height: 8, borderRadius: "50%",
-      background: connected ? "#28a028" : "#e03030",
-      boxShadow: connected ? "0 0 0 2px rgba(40,160,40,.2)" : "none",
-      flexShrink: 0, display: "inline-block", transition: "background .3s",
-      marginLeft: 8
-    }}/>
-  );
-}
+
 
 // Inline Stamp Float for Lobby
 function StampFloat({ stampData }) {
