@@ -1338,71 +1338,98 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
       {/* Top bar */}
       <div
         style={{
-          padding: "8px 16px",
+          padding: "10px 16px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          borderBottom: `2px solid ${C.black}`,
-          gap: 8,
-          overflowX: "auto"
+          background: "var(--white)",
+          borderBottom: "1.5px solid var(--gray1)",
+          gap: 12,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+          zIndex: 100,
+          position: "sticky",
+          top: 0
         }}
       >
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 900,
-            fontFamily: "'Inter', sans-serif",
-            color: C.black,
-            flexShrink: 0
-          }}
-        >
-          ALGOSIX
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 900,
+              fontFamily: "'Inter', sans-serif",
+              color: "var(--black)",
+              letterSpacing: "0.02em"
+            }}
+          >
+            ALGOSIX
+          </span>
+          <div style={{ 
+            background: "var(--gray1)", 
+            padding: "4px 10px", 
+            borderRadius: "20px", 
+            fontSize: 10, 
+            fontWeight: 800, 
+            color: "var(--gray4)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4
+          }}>
+            <span style={{ fontSize: 12 }}>🎴</span> {state.deck.length}
+          </div>
+        </div>
         
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minWidth: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minWidth: 80 }}>
           {state.currentPlayer === currentViewPlayer ? (
-             <span style={{ fontSize: 13, fontWeight: 700, color: C.black }}>あなたのターン</span>
+             <div style={{ 
+               background: "var(--black)", 
+               color: "var(--white)", 
+               padding: "6px 16px", 
+               borderRadius: "20px", 
+               fontSize: 12, 
+               fontWeight: 900,
+               boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+               animation: "pulse 2s infinite ease-in-out"
+             }}>
+               YOUR TURN
+             </div>
           ) : (
              <ThinkingIndicator name={state.players[currentPlayer].name} phase={state.phase}/>
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-             <span style={{ fontSize: 11, fontWeight: 700, color: C.gray4, whiteSpace: "nowrap" }}>山札 {state.deck.length}</span>
-             {onlineContext?.roomId && <ConnStatus game={state} />}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {onlineContext?.roomId && <ConnStatus game={state} />}
           <button
             onClick={() => setShowRules(true)}
             style={{
-              padding: "4px 8px",
-              border: `1.5px solid ${C.gray2}`,
-              background: C.white,
-              color: C.gray4,
-              fontSize: 11,
-              fontWeight: 600,
+              width: 32, height: 32,
+              borderRadius: "50%",
+              background: "var(--gray1)",
+              border: "none",
               cursor: "pointer",
-              fontFamily: "'Noto Sans JP', sans-serif",
-              borderRadius: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16,
+              transition: "all 0.2s"
             }}
+            title="ルール"
           >
-            ルール
+            📋
           </button>
           <button
             onClick={() => setShowHomeConfirm(true)}
             style={{
-              padding: "4px 8px",
-              border: `1.5px solid ${C.gray2}`,
-              background: C.white,
-              color: C.gray4,
-              fontSize: 11,
-              fontWeight: 600,
+              width: 32, height: 32,
+              borderRadius: "50%",
+              background: "var(--gray1)",
+              border: "none",
               cursor: "pointer",
-              fontFamily: "'Noto Sans JP', sans-serif",
-              borderRadius: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16,
+              transition: "all 0.2s"
             }}
+            title="ホーム"
           >
-            ホーム
+            🏠
           </button>
         </div>
       </div>
