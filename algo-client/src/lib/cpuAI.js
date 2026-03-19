@@ -5,64 +5,101 @@ export class CpuKnowledge {
   constructor(players, mySeatIndex, level) {
     this.mySeatIndex = mySeatIndex;
     this.level = level;
+    this.initCandidates(players);
+  }
 
-    // candidates[pi][ci] = Set<number> — 候補数字セット
+  initCandidates(players) {
     this.candidates = players.map(p =>
       p.hand.map(() => new Set(Array.from({ length: 12 }, (_, i) => i)))
     );
-
-    // probs[pi][ci] = { [number]: probability }
-    this.probs = level === "hard"
-      ? players.map(p => p.hand.map(() => Object.fromEntries(
-          Array.from({ length: 12 }, (_, i) => [i, 1/12])
-        )))
-      : null;
   }
 
-  // オープン時の更新
-  onReveal(pi, ci, color, number) {
-    if (!this.candidates[pi] || !this.candidates[pi][ci]) return;
+  updateFromState(game) {
+    if (this.level === 'easy') return;
 
-    // そのカードの候補を確定
-    this.candidates[pi][ci] = new Set([number]);
+    // Reset and recalculate based entirely on current board state
+    // This removes the need for step-by-step stateful tracking of reveals
+    this.initCandidates(game.players);
     
-    // 同色同数字は1枚しかないため、他の候補から除外
-    this.candidates.forEach((playerCands, pIdx) => {
-      playerCands.forEach((cands, cIdx) => {
-        if (pIdx === pi && cIdx === ci) return;
-        // （実際には色も考慮する必要があるため、簡略化。
-        //  より厳密には、他プレイヤーの同色カード一覧を知る必要がある。
-        //  今回はシンプルに見えた数字は完全除外とする実装例）
-        // cands.delete(number); 
+    // 1. Collect all known cards
+    const knownCards = [];
+    game.players.forEach(p => {
+      p.hand.forEach((c, ci) => {
+        let isKnown = false;
+        if (p.id === this.mySeatIndex) isKnown = true;
+        if (c.revealed) isKnown = true;
+        // If partner in pair mode, and card was tossed (we'll detect it if c.number is not undefined in state, wait, client state might not have number if not revealed unless it's tossed. 
+        // Actually tossedCard is in game.tossedCard but wait, let's just check c.number !== undefined)
+        if (c.number !== undefined) isKnown = true;
+
+        if (isKnown) {
+          knownCards.push({ player: p.id, cardIndex: ci, color: c.color, number: c.number });
+          this.candidates[p.id][ci] = new Set([c.number]);
+        }
       });
     });
-    this.applyOrderConstraints();
-  }
 
-  // 不正解時の更新
-  onWrongGuess(pi, ci, number) {
-    if (!this.candidates[pi] || !this.candidates[pi][ci]) return;
+    // 2. Remove known cards of same color from others
+    knownCards.forEach(known => {
+      game.players.forEach(p => {
+        p.hand.forEach((c, ci) => {
+          if (p.id === known.player && ci === known.cardIndex) return;
+          if (c.color === known.color) {
+            this.candidates[p.id][ci].delete(known.number);
+          }
+        });
+      });
+    });
 
-    this.candidates[pi][ci].delete(number);
-    if (this.probs) {
-      delete this.probs[pi][ci][number];
-      this.normalizeProbabilities(pi, ci);
+    // 3. Iterative Left-to-Right Sorting Constraints
+    let changed = true;
+    let iterations = 0;
+    while(changed && iterations < 20) {
+      changed = false;
+      iterations++;
+      
+      game.players.forEach(p => {
+        for (let i = 0; i < p.hand.length - 1; i++) {
+          const candsLeft = this.candidates[p.id][i];
+          const candsRight = this.candidates[p.id][i+1];
+          if (candsLeft.size === 0 || candsRight.size === 0) continue;
+
+          const maxRight = Math.max(...candsRight);
+          const minLeft = Math.min(...candsLeft);
+          const colL = p.hand[i].color;
+          const colR = p.hand[i+1].color;
+
+          // Black < White if numbers are equal, so White and Black of same number exist.
+          // hand is sorted ascending. Tie breaks: Black is left of White.
+          // L=Black, R=White => L <= R
+          // L=White, R=Black => L < R
+          // L=Black, R=Black => L < R
+          // L=White, R=White => L < R
+          const isStrict = !(colL === 'black' && colR === 'white');
+
+          for (let val of Array.from(candsLeft)) {
+            if (isStrict ? val >= maxRight : val > maxRight) {
+              candsLeft.delete(val);
+              changed = true;
+            }
+          }
+
+          for (let val of Array.from(candsRight)) {
+            if (isStrict ? val <= minLeft : val < minLeft) {
+              candsRight.delete(val);
+              changed = true;
+            }
+          }
+        }
+      });
     }
   }
 
-  // 並び順制約の適用
-  applyOrderConstraints() {
-    // 簡略化した実装。左右のカードのオープン状況から端の候補を削るなど。
-    // 今回の詳細な制約ロジックはNORMAL/HARD向けの拡張部分。
-  }
-
-  // 確率の正規化（HARDのみ）
-  normalizeProbabilities(pi, ci) {
-    if (!this.probs[pi][ci]) return;
-    const obj = this.probs[pi][ci];
-    const sum = Object.values(obj).reduce((a, b) => a + b, 0);
-    if (sum > 0) {
-      for (let k in obj) obj[k] /= sum;
+  // To be called from outside for HARD difficulty (tracking past wrong guesses)
+  onWrongGuess(targetPlayer, targetCard, guessNumber) {
+    if (this.level !== 'hard') return;
+    if (this.candidates[targetPlayer] && this.candidates[targetPlayer][targetCard]) {
+      this.candidates[targetPlayer][targetCard].delete(guessNumber);
     }
   }
 }
@@ -99,50 +136,120 @@ export function selectGuessNumber(level, targetCard, knowledge) {
   return cands[Math.floor(Math.random() * cands.length)];
 }
 
-// CPUの個人戦アタック決定
-export function cpuDecideIndividual(level, game, mySeat, knowledge) {
-  const targetCard = selectTargetCard(level, game, mySeat, knowledge);
-  if (!targetCard) return null;
+// ターゲットと宣言数字の選定ロジック (NORMAL / HARD)
+function getBestAttackIndividual(knowledge, enemies) {
+  let bestCards = [];
+  let minCandsSize = 999;
 
-  const guessNumber = selectGuessNumber(level, targetCard, knowledge);
+  enemies.forEach(enemy => {
+    enemy.hand.forEach((card, ci) => {
+      if (!card.revealed) {
+        const cands = knowledge.candidates[enemy.id][ci];
+        const size = cands.size;
+        if (size > 0 && size < minCandsSize) {
+          minCandsSize = size;
+          bestCards = [{ playerIndex: enemy.id, cardIndex: ci, cands }];
+        } else if (size > 0 && size === minCandsSize) {
+          bestCards.push({ playerIndex: enemy.id, cardIndex: ci, cands });
+        }
+      }
+    });
+  });
+
+  if (bestCards.length === 0) return null;
+  const picked = bestCards[Math.floor(Math.random() * bestCards.length)];
+  const candArr = Array.from(picked.cands);
+  const guessNumber = candArr[Math.floor(Math.random() * candArr.length)];
 
   return {
-    targetPlayerIndex: targetCard.playerIndex,
-    targetCardIndex: targetCard.cardIndex,
-    guessNumber,
+    targetPlayerIndex: picked.playerIndex,
+    targetCardIndex: picked.cardIndex,
+    guessNumber
   };
+}
+
+function getBestAttackPair(knowledge, enemies, myHand, myHiddenCards) {
+  let bestMatch = null;
+  let minCandsSize = 999;
+
+  enemies.forEach(enemy => {
+    enemy.hand.forEach((card, ci) => {
+      if (!card.revealed) {
+        const cands = knowledge.candidates[enemy.id][ci];
+        const matchingOwnCards = myHiddenCards.filter(myCard => cands.has(myCard.card.number));
+        
+        if (matchingOwnCards.length > 0) {
+          const size = cands.size;
+          if (size < minCandsSize) {
+            minCandsSize = size;
+            const myPicked = matchingOwnCards[Math.floor(Math.random() * matchingOwnCards.length)];
+            bestMatch = {
+              targetPlayerIndex: enemy.id,
+              targetCardIndex: ci,
+              myCardIndex: myPicked.index,
+              guessNumber: myPicked.card.number
+            };
+          }
+        }
+      }
+    });
+  });
+
+  if (bestMatch) return bestMatch;
+  // Fallback if no matching cards conceptually
+  return cpuDecidePairEASY(enemies, myHiddenCards);
+}
+
+function cpuDecidePairEASY(enemies, myHiddenCards) {
+  const cands = [];
+  enemies.forEach(e => e.hand.forEach((c, ci) => { if (!c.revealed) cands.push({ p: e.id, c: ci }); }));
+  if (cands.length === 0 || myHiddenCards.length === 0) return null;
+  
+  const target = cands[Math.floor(Math.random() * cands.length)];
+  const myCard = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)];
+  return {
+    targetPlayerIndex: target.p,
+    targetCardIndex: target.c,
+    myCardIndex: myCard.index,
+    guessNumber: myCard.card.number
+  };
+}
+
+// CPUの個人戦アタック決定
+export function cpuDecideIndividual(level, game, mySeat, knowledge) {
+  const mode = game.mode || "individual";
+  const myTeam = mode === "pair" ? (mySeat % 2 === 0 ? "A" : "B") : null;
+  const enemies = mode === "pair" 
+    ? game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam)
+    : game.players.filter(p => p.id !== mySeat);
+
+  if (level === "easy") {
+    const targetCard = selectTargetCard(level, game, mySeat, knowledge);
+    if (!targetCard) return null;
+    return {
+      targetPlayerIndex: targetCard.playerIndex,
+      targetCardIndex: targetCard.cardIndex,
+      guessNumber: Math.floor(Math.random() * 12),
+    };
+  }
+
+  return getBestAttackIndividual(knowledge, enemies);
 }
 
 // CPUのペア戦アタック決定
 export function cpuDecidePair(level, game, mySeat, knowledge) {
-  const targetCard = selectTargetCard(level, game, mySeat, knowledge);
-  if (!targetCard) return null;
-
+  const myTeam = mySeat % 2 === 0 ? "A" : "B";
+  const enemies = game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam);
   const myHand = game.players[mySeat].hand;
-  const myHiddenCards = myHand
-    .map((c, i) => ({ card: c, index: i }))
-    .filter(({ card }) => !card.revealed);
+  const myHiddenCards = myHand.map((c, i) => ({ card: c, index: i })).filter(({ card }) => !card.revealed);
 
   if (myHiddenCards.length === 0) return null;
 
-  let myCardIndex;
   if (level === "easy") {
-    myCardIndex = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)].index;
-  } else {
-    // NORMAL以上: targetCardの候補にあいそうな自分のカードを選ぶ
-    const targetCands = knowledge.candidates[targetCard.playerIndex][targetCard.cardIndex];
-    const matching = myHiddenCards.filter(({ card }) => targetCands.has(card.number));
-    myCardIndex = matching.length > 0
-      ? matching[Math.floor(Math.random() * matching.length)].index
-      : myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)].index;
+    return cpuDecidePairEASY(enemies, myHiddenCards);
   }
 
-  return {
-    targetPlayerIndex: targetCard.playerIndex,
-    targetCardIndex: targetCard.cardIndex,
-    myCardIndex,
-    guessNumber: game.players[mySeat].hand[myCardIndex].number,
-  };
+  return getBestAttackPair(knowledge, enemies, myHand, myHiddenCards);
 }
 
 export function cpuDecide(level, game, mySeat, knowledge, mode) {
@@ -166,7 +273,27 @@ export function cpuSelectToss(level, game, mySeat, currentSeat, knowledge) {
 // 再アタック判断
 export function shouldReattack(level, knowledge, game, mySeat) {
   if (level === "easy") return Math.random() > 0.5;
-  return false; // シンプル版
+  
+  // NORMAL/HARD: if there's a 100% certain guess, keep going. Pick best size.
+  const mode = game.mode || "individual";
+  const myTeam = mode === "pair" ? (mySeat % 2 === 0 ? "A" : "B") : null;
+  const enemies = mode === "pair" 
+    ? game.players.filter(p => (p.id % 2 === 0 ? "A" : "B") !== myTeam)
+    : game.players.filter(p => p.id !== mySeat);
+
+  let minCandsSize = 999;
+  enemies.forEach(enemy => {
+    enemy.hand.forEach((card, ci) => {
+      if (!card.revealed) {
+        const cands = knowledge.candidates[enemy.id][ci];
+        if (cands.size < minCandsSize) minCandsSize = cands.size;
+      }
+    });
+  });
+
+  if (minCandsSize === 1) return true;
+  if (minCandsSize === 2) return Math.random() > 0.4;
+  return false;
 }
 
 function sleep(ms) {

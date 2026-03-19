@@ -280,7 +280,13 @@ export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardInde
       phase: "pass_to_partner",
       drawnCard: null,
       currentPlayer: nextPlayerIdx,
-      lastAction: { type: "incorrect", detail: actionDetail },
+      lastAction: { 
+        type: "incorrect", 
+        detail: actionDetail,
+        targetPlayerIndex,
+        targetCardIndex,
+        guessNumber: myCard.number
+      },
       log: newLog,
       turnCount: state.turnCount + 1,
       tossedCard: null,
@@ -396,7 +402,13 @@ export function attack(state, targetPlayerIndex, targetCardIndex, guessNumber) {
       phase: "draw",
       drawnCard: null,
       currentPlayer: nextPlayerIdx,
-      lastAction: { type: "incorrect", detail: actionDetail },
+      lastAction: { 
+        type: "incorrect", 
+        detail: actionDetail,
+        targetPlayerIndex,
+        targetCardIndex,
+        guessNumber
+      },
       log: newLog,
       turnCount: state.turnCount + 1,
     };

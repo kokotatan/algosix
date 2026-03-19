@@ -979,6 +979,18 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     setGuessNumber(null);
   }, [state.phase]);
 
+  // Watch for wrong guesses to inform HARD CPU
+  useEffect(() => {
+    if (state.lastAction?.type === "incorrect" && cpuSettings?.level === "hard") {
+      const { targetPlayerIndex, targetCardIndex, guessNumber } = state.lastAction;
+      if (guessNumber !== undefined) {
+         Object.values(cpuKnowledgeRefs.current).forEach(knowledge => {
+            knowledge.onWrongGuess(targetPlayerIndex, targetCardIndex, guessNumber);
+         });
+      }
+    }
+  }, [state.lastAction, cpuSettings]);
+
   // CPU Turn Execution
   useEffect(() => {
     if (!cpuSettings || state.phase === "gameover") return;
