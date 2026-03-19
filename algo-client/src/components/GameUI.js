@@ -31,6 +31,7 @@ export function Card({
   isSelected = false,
   isOwn = false,
   showNumber = false,
+  animClass = "",
 }) {
   const dim = CARD_SIZES[size];
   const isRevealed = card.revealed || showNumber;
@@ -71,6 +72,7 @@ export function Card({
 
     return (
       <div
+        className={`card${animClass ? ` ${animClass}` : ""}`}
         style={faceStyle}
         onClick={onClick}
         role={isSelectable ? "button" : undefined}
@@ -124,6 +126,7 @@ export function Card({
 
   return (
     <div
+      className={`card${animClass ? ` ${animClass}` : ""}`}
       style={backStyle}
       onClick={onClick}
       role={isSelectable ? "button" : undefined}
@@ -148,6 +151,7 @@ export function Seat({
   team,
   myTeam,
   tossedCard, // new prop passed from GameBoard
+  cardAnims = {},
 }) {
   const seatStyle = {
     display: "flex",
@@ -237,6 +241,7 @@ export function Seat({
               showNumber={showNumber}
               isSelectable={isSelectable}
               isSelected={isSelected}
+              animClass={cardAnims[`${player.id}-${idx}`] || ""}
               onClick={() => {
                 if (isSelectable && onCardClick) {
                   onCardClick(player.id, idx, isOwnSelectable);
@@ -251,7 +256,7 @@ export function Seat({
 }
 
 /* ─── DeckStack Component ─── */
-export function DeckStack({ count, drawnCard, showDrawn }) {
+export function DeckStack({ count, drawnCard, showDrawn, animClass = "", showCombo = false, comboCount = 0 }) {
   const stackStyle = {
     display: "flex",
     flexDirection: "column",
@@ -268,7 +273,12 @@ export function DeckStack({ count, drawnCard, showDrawn }) {
   const cardsInStack = Math.min(count, 3);
 
   return (
-    <div style={stackStyle}>
+    <div style={stackStyle} className="center-pile position-relative">
+      {showCombo && (
+        <div className="combo-badge">
+          {comboCount >= 4 ? "すごい！" : `${comboCount}連続！`}
+        </div>
+      )}
       <div style={deckVisual}>
         {Array.from({ length: cardsInStack }).map((_, i) => (
           <div
@@ -316,7 +326,7 @@ export function DeckStack({ count, drawnCard, showDrawn }) {
       </span>
       {showDrawn && drawnCard && (
         <div style={{ marginTop: 4 }}>
-          <Card card={drawnCard} size="lg" showNumber={true} />
+          <Card card={drawnCard} size="lg" showNumber={true} animClass={animClass} />
         </div>
       )}
     </div>
@@ -568,6 +578,7 @@ export function GameLog({ log }) {
       {log.map((entry, i) => (
         <div
           key={i}
+          className="log-line"
           style={{
             borderBottom: `1px solid ${C.gray1}`,
             padding: "2px 0",
@@ -588,6 +599,10 @@ export function GameBoard({
   onCardClick,
   selectedTarget,
   selectedOwnCard, // New for pair mode
+  cardAnims = {},
+  turnPulse = false,
+  showCombo = false,
+  comboCount = 0,
 }) {
   const { players, mode } = state;
   const count = players.length;
@@ -627,6 +642,7 @@ export function GameBoard({
       team={mode === "pair" ? getTeamLabel(player.id) : null}
       myTeam={myTeam}
       tossedCard={state.tossedCard}
+      cardAnims={cardAnims}
     />
   );
 
@@ -640,8 +656,11 @@ export function GameBoard({
           count={state.deck.length}
           drawnCard={state.drawnCard}
           showDrawn={currentViewPlayer === state.currentPlayer}
+          animClass={cardAnims[`${state.currentPlayer}-new`] || ""}
+          showCombo={showCombo}
+          comboCount={comboCount}
         />
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
           {makeSeat(reordered[0])}
         </div>
       </div>
@@ -665,8 +684,11 @@ export function GameBoard({
           count={state.deck.length}
           drawnCard={state.drawnCard}
           showDrawn={currentViewPlayer === state.currentPlayer}
+          animClass={cardAnims[`${state.currentPlayer}-new`] || ""}
+          showCombo={showCombo}
+          comboCount={comboCount}
         />
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
           {makeSeat(reordered[0])}
         </div>
       </div>
@@ -692,10 +714,13 @@ export function GameBoard({
           count={state.deck.length}
           drawnCard={state.drawnCard}
           showDrawn={currentViewPlayer === state.currentPlayer}
+          animClass={cardAnims[`${state.currentPlayer}-new`] || ""}
+          showCombo={showCombo}
+          comboCount={comboCount}
         />
         {makeSeat(reordered[3])}
       </div>
-      <div style={{ display: "flex", justifyContent: "center" }}>
+      <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
         {makeSeat(reordered[0])}
       </div>
     </div>

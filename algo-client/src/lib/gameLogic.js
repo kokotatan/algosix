@@ -241,7 +241,7 @@ export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardInde
         players: newPlayersWithOut,
         phase: "gameover",
         winner: currentIdx,
-        lastAction: { type: "correct", detail: actionDetail },
+        lastAction: { type: "correct", detail: actionDetail, targetPlayerIndex, targetCardIndex },
         log: newLog,
         myAttackCardIndex: myCardIndex,
       };
@@ -251,7 +251,7 @@ export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardInde
       ...state,
       players: newPlayersWithOut,
       phase: "continue",
-      lastAction: { type: "correct", detail: actionDetail },
+      lastAction: { type: "correct", detail: actionDetail, targetPlayerIndex, targetCardIndex },
       log: newLog,
       myAttackCardIndex: myCardIndex,
     };
@@ -372,7 +372,7 @@ export function attack(state, targetPlayerIndex, targetCardIndex, guessNumber) {
         players: newPlayersWithOut,
         phase: "gameover",
         winner: state.currentPlayer,
-        lastAction: { type: "correct", detail: actionDetail },
+        lastAction: { type: "correct", detail: actionDetail, targetPlayerIndex, targetCardIndex },
         log: newLog,
       };
     }
@@ -381,7 +381,7 @@ export function attack(state, targetPlayerIndex, targetCardIndex, guessNumber) {
       ...state,
       players: newPlayersWithOut,
       phase: "continue",
-      lastAction: { type: "correct", detail: actionDetail },
+      lastAction: { type: "correct", detail: actionDetail, targetPlayerIndex, targetCardIndex },
       log: newLog,
     };
   } else {

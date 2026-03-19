@@ -9,6 +9,7 @@ import {
 import Tutorial from "./Tutorial";
 import { CpuKnowledge, shouldReattack, cpuSelectToss, cpuDecide } from "../lib/cpuAI";
 import { useFirebaseMultiplayer } from "../hooks/useFirebaseMultiplayer";
+import { triggerCardAnim } from "../lib/animUtils";
 import { OnlineSetupScreen, OnlineJoinScreen } from "./OnlineLobbyScreen";
 import { OnlineRoomScreen } from "./OnlineRoomScreen";
 import {
@@ -589,6 +590,7 @@ function PassScreen({ playerName, onReady, message = "に渡してください",
         }}
       >
         <div
+          className="pass-ring"
           style={{
             width: 80,
             height: 80,
@@ -597,11 +599,13 @@ function PassScreen({ playerName, onReady, message = "に渡してください",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 36,
+            borderRadius: "50%",
           }}
         >
           ▶
         </div>
         <h2
+          className="pass-name"
           style={{
             fontSize: 22,
             fontWeight: 800,
@@ -817,8 +821,20 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
 
+  // Animation States
+  const [cardAnims, setCardAnims] = useState({});
+  const [comboCount, setComboCount] = useState(0);
+  const [showCombo, setShowCombo] = useState(false);
+  const [turnPulse, setTurnPulse] = useState(false);
+
   const state = gameState;
   const currentPlayer = state.currentPlayer;
+  
+  const isOnlinePeer = onlineContext && onlineContext.roomId && !onlineContext.isHost;
+  const currentViewPlayer = isOnlinePeer 
+    ? state.players.findIndex(p => p.name === onlineContext.onlinePlayers.find(op => op.id === "self")?.name) 
+    : currentPlayer;
+    
   const cardSize = getCardSize(playerNames.length);
 
   const cpuKnowledgeRefs = useRef({});
@@ -837,6 +853,44 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     setSelectedOwnCard(null);
     setGuessNumber(null);
   }, [state.phase]);
+
+  // Handle Turn Pulse
+  useEffect(() => {
+    // Current player's turn started (in draw or pass_to_partner phase)
+    if (state.currentPlayer === currentViewPlayer && 
+        (state.phase === "draw" || state.phase === "pass_to_partner")) {
+      setTurnPulse(true);
+      setTimeout(() => setTurnPulse(false), 700);
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate([20]);
+    }
+  }, [state.currentPlayer, state.phase]);
+
+  // Handle Action Animations (Flip, Shake, Combo)
+  useEffect(() => {
+    if (!state.lastAction) return;
+    const la = state.lastAction;
+    
+    if (la.type === "correct") {
+      setComboCount(prev => {
+        const nextCombo = prev + 1;
+        if (nextCombo >= 2) {
+          setShowCombo(true);
+          setTimeout(() => setShowCombo(false), 1300);
+        }
+        return nextCombo;
+      });
+      if (la.targetPlayerIndex !== undefined && la.targetCardIndex !== undefined) {
+        triggerCardAnim(setCardAnims, `${la.targetPlayerIndex}-${la.targetCardIndex}`, "flip-reveal", 600);
+      }
+    } else if (la.type === "incorrect") {
+      setComboCount(0);
+      if (la.targetPlayerIndex !== undefined && la.targetCardIndex !== undefined) {
+        triggerCardAnim(setCardAnims, `${la.targetPlayerIndex}-${la.targetCardIndex}`, "shake", 500);
+      }
+    } else if (la.type === "stay") {
+      setComboCount(0);
+    }
+  }, [state.lastAction]);
 
   // --- ONLINE STATE SYNC LOGIC ---
 
@@ -879,7 +933,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
 
   // --- ACTION DISPATCHER ---
   const dispatchAction = useCallback((actionType, payload) => {
-    if (onlineContext && !isHost) {
+    if (onlineContext && onlineContext.roomId && !isHost) {
       // Peer sends action to host instead of executing it locally
       emit("peer_action", { roomId, action: actionType, payload });
       return;
@@ -1298,11 +1352,15 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
       {/* Game board */}
       <GameBoard
         state={state}
-        currentViewPlayer={currentPlayer}
+        currentViewPlayer={currentViewPlayer}
         cardSize={cardSize}
         onCardClick={handleCardClick}
         selectedTarget={selectedTarget}
         selectedOwnCard={selectedOwnCard}
+        cardAnims={cardAnims}
+        turnPulse={turnPulse}
+        showCombo={showCombo}
+        comboCount={comboCount}
       />
 
       {/* Log */}
@@ -1356,7 +1414,28 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
 }
 
 /* ─── Result Screen ─── */
-function ResultScreen({ winner, onBackToMenu }) {
+function ResultScreen({ state, onBackToMenu }) {
+  const [revealedAll, setRevealedAll] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+
+  useEffect(() => {
+    // After 0.6s start flipping cards sequentially
+    const timer1 = setTimeout(() => setRevealedAll(true), 600);
+    // After 2.0s show summary
+    const timer2 = setTimeout(() => setShowSummary(true), 2000);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
+  }, []);
+
+  const winnerPlayer = state.players[state.winner];
+
+  // Calculate stats from log
+  const totalTurns = state.log.filter(e => e.includes("カードを引いた")).length;
+  const correctByPlayer = state.players.map(p => {
+    const correct = state.log.filter(e => e.startsWith(p.name) && e.includes("正解")).length;
+    const total = state.log.filter(e => e.startsWith(p.name) && (e.includes("正解") || e.includes("不正解"))).length;
+    return { name: p.name, correct, total, rate: total > 0 ? Math.round((correct / total) * 100) : 0 };
+  });
+
   return (
     <ScreenWrapper>
       <div
@@ -1368,9 +1447,11 @@ function ResultScreen({ winner, onBackToMenu }) {
           justifyContent: "center",
           gap: 20,
           padding: 32,
+          overflowY: "auto"
         }}
       >
         <div
+          className="win-badge"
           style={{
             width: 100,
             height: 100,
@@ -1378,12 +1459,18 @@ function ResultScreen({ winner, onBackToMenu }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 48,
+            fontSize: 24,
+            fontWeight: 900,
+            fontFamily: "'Inter', sans-serif",
+            borderRadius: "50%",
+            background: C.black,
+            color: C.white,
           }}
         >
           WINNER
         </div>
         <h2
+          className="win-name"
           style={{
             fontSize: 30,
             fontWeight: 900,
@@ -1393,28 +1480,60 @@ function ResultScreen({ winner, onBackToMenu }) {
             textAlign: "center",
           }}
         >
-          {winner} の勝利！
+          {winnerPlayer.name} の勝利！
         </h2>
-        <p
-          style={{
-            fontSize: 14,
-            color: C.gray3,
-            fontFamily: "'Noto Sans JP', sans-serif",
-          }}
-        >
-           おめでとうございます
-        </p>
-        <OutlinedButton
-          onClick={onBackToMenu}
-          selected={true}
-          style={{
-            padding: "14px 40px",
-            fontSize: 15,
-            marginTop: 8,
-          }}
-        >
-          メニューに戻る
-        </OutlinedButton>
+
+        {/* Sequenced card reveals */}
+        <div className="win-hands">
+          {state.players.map((player, pi) => (
+            <div key={pi} className="win-hand-row">
+              <span className="win-hand-name">{player.name}</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {player.hand.map((card, ci) => (
+                  <div
+                    key={ci}
+                    style={{
+                      animationDelay: revealedAll ? `${(pi * player.hand.length + ci) * 0.08}s` : "0s",
+                    }}
+                  >
+                    <Card
+                      card={{ ...card, revealed: true }}
+                      size="sm"
+                      showNumber={true}
+                      animClass={revealedAll ? "flip-reveal" : ""}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Game Stats Summary */}
+        {showSummary && (
+          <div className="game-summary">
+            <div className="summary-row">
+              <span>総ターン数</span>
+              <span>{Math.max(totalTurns, state.turnCount)}</span>
+            </div>
+            {correctByPlayer.map((p, i) => (
+              <div key={i} className="summary-row">
+                <span>{p.name} 正解率</span>
+                <span>{p.rate}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ animation: "fadeIn 0.5s ease 2.5s both", marginTop: 12 }}>
+          <OutlinedButton
+            onClick={onBackToMenu}
+            selected={true}
+            style={{ padding: "14px 40px", fontSize: 15 }}
+          >
+            メニューに戻る
+          </OutlinedButton>
+        </div>
       </div>
     </ScreenWrapper>
   );
@@ -1548,7 +1667,7 @@ export default function AlgoApp() {
   }, [isHost, onlinePlayers, onlineConfig, handleStartGame]);
 
   const handleGameEnd = useCallback((finalState) => {
-    setWinner(finalState.players[finalState.winner].name);
+    setGameState(finalState);
     setScreen("result");
   }, []);
 
@@ -1606,11 +1725,8 @@ export default function AlgoApp() {
         />
       );
     case "result":
-      return (
-        <ResultScreen winner={winner} onBackToMenu={handleBackToMenu} />
-      );
+      return <ResultScreen state={gameState} onBackToMenu={handleBackToMenu} />;
     default:
       return <MenuScreen onNavigate={setScreen} />;
   }
 }
-
