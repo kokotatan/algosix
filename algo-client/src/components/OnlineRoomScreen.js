@@ -137,22 +137,22 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
           <div style={{ fontSize: 12, fontWeight: 800, color: "var(--gray4)", marginBottom: 10, textAlign: "left", letterSpacing: "0.02em" }}>友達を招待</div>
           <div className="share-row">
             <button className="share-btn share-line" onClick={shareToLine}>
-              <span style={{ fontSize: 16 }}>💬</span> LINEで送る
+              LINEで送る
             </button>
             <button className={`share-btn ${copiedType === 'url' ? 'copied' : ''}`} onClick={copyUrl}>
-              {copiedType === 'url' ? '✅ コピー完了' : '🔗 URLをコピー'}
+              {copiedType === 'url' ? 'コピー完了' : 'URLをコピー'}
             </button>
             <button className={`share-btn ${copiedType === 'code' ? 'copied' : ''}`} onClick={copyCode}>
-              {copiedType === 'code' ? '✅ コピー完了' : '🆔 コードをコピー'}
+              {copiedType === 'code' ? 'コピー完了' : 'コードをコピー'}
             </button>
             <button className="share-btn share-qr" onClick={() => setShowQr(!showQr)}>
-              📷 QRコードを表示 {showQr ? "▲" : "▼"}
+              QRコードを表示 {showQr ? "▲" : "▼"}
             </button>
           </div>
           {showQr && qrDataUrl && (
             <div style={{ textAlign:"center", padding:"20px 0", animation:"logSlideUp .3s cubic-bezier(0.22, 1, 0.36, 1) both", background: "var(--white)", borderRadius: 12, marginTop: 12, border: "1px solid var(--gray1)" }}>
               <img src={qrDataUrl} alt="QR" style={{ width:180, height:180, borderRadius:8, display:"block", margin:"0 auto", border: "4px solid white", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}/>
-              <p style={{ fontSize:12, color:"var(--gray3)", marginTop:10, fontWeight: 600 }}>カメラで読み取って参加！</p>
+              <p style={{ fontSize:12, color:"var(--gray3)", marginTop:10, fontWeight: 600 }}>カメラで読み取って参加</p>
             </div>
           )}
         </div>
@@ -175,7 +175,6 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
                 border: "1.5px solid var(--gray1)",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
               }}>
-                <StampFloat stampData={p.lastStamp} />
                 <div style={{ 
                   width: 28, height: 28, borderRadius: "50%", 
                   background: "var(--black)", color: "var(--white)", 
@@ -247,10 +246,7 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
               ホストの開始を待っています...
             </div>
           )}
-          <OutlinedButton onClick={onLeave}>退出する</OutlinedButton>
-        </div>
-      </div>
-
+        <OutlinedButton onClick={onLeave}>退出する</OutlinedButton>
       </div>
     </ScreenWrapper>
   );
