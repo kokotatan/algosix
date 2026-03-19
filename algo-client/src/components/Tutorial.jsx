@@ -174,6 +174,7 @@ function Step1Cards({ onNext }) {
 function Step2TurnFlow({ onNext }) {
   const [subStep, setSubStep] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [drawComplete, setDrawComplete] = useState(false);
   const cpuHand = [
     { id: "cpu-b1", color: "black", number: 1, revealed: false },
     { id: "cpu-w4", color: "white", number: 4, revealed: false },
@@ -201,14 +202,21 @@ function Step2TurnFlow({ onNext }) {
             )}
           </div>
 
-          {!isDrawing && (
+          {!isDrawing ? (
              <>
                <div style={hintBox}>タップして引いてみよう！</div>
                <Btn onClick={() => {
                  setIsDrawing(true);
-                 setTimeout(() => setSubStep(1), 1200);
+                 setTimeout(() => setDrawComplete(true), 800);
                }}>カードを引く</Btn>
              </>
+          ) : (
+             drawComplete && (
+               <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+                 <div style={{ ...hintBox, borderColor: C.black, color: C.black }}>白の5を引きました！</div>
+                 <Btn onClick={() => setSubStep(1)}>次へ →</Btn>
+               </div>
+             )
           )}
         </>
       )}
