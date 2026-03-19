@@ -188,12 +188,13 @@ export function startAttackFromToss(state) {
 }
 
 /**
- * Pair mode attack: use own card to guess opponent's card
+ * Pair mode attack: select own card + opponent card + declare a number
  * @param {number} targetPlayerIndex
  * @param {number} targetCardIndex
  * @param {number} myCardIndex - index of own card used for attack
+ * @param {number} guessNumber - the number declared by the attacker
  */
-export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardIndex) {
+export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardIndex, guessNumber) {
   const currentIdx = state.currentPlayer;
   const targetPlayer = state.players[targetPlayerIndex];
   const targetCard = targetPlayer.hand[targetCardIndex];
@@ -202,10 +203,11 @@ export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardInde
   if (!targetCard || targetCard.revealed) return state;
   if (!myCard || myCard.revealed) return state;
 
-  const correct = targetCard.number === myCard.number;
+  const correct = targetCard.number === guessNumber;
   const currentName = state.players[currentIdx].name;
   const targetName = targetPlayer.name;
-  const declareStr = `${myCard.color === "black" ? "黒" : "白"}${myCard.number}`;
+  const colorStr = targetCard.color === "black" ? "黒" : "白";
+  const declareStr = `${colorStr}${guessNumber}`;
 
   if (correct) {
     // Reveal opponent's card
@@ -285,7 +287,7 @@ export function pairAttack(state, targetPlayerIndex, targetCardIndex, myCardInde
         detail: actionDetail,
         targetPlayerIndex,
         targetCardIndex,
-        guessNumber: myCard.number
+        guessNumber
       },
       log: newLog,
       turnCount: state.turnCount + 1,

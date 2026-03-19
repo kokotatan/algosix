@@ -19,6 +19,7 @@ const CARD_SIZES = {
   xl: { w: 58, h: 82, font: 32 },
   lg: { w: 50, h: 70, font: 27 },
   md: { w: 44, h: 62, font: 24 },
+  sm: { w: 32, h: 46, font: 16 },
 };
 
 /* ─── Card Component ─── */
@@ -483,20 +484,33 @@ export function ActionPanel({
           </div>
           <div style={{ fontSize: 13, color: C.black, fontWeight: 600, textAlign: "center", margin: "4px 0" }}>
             {selectedOwnCard === null ? (
-              <span>1. アタックに使う<b>自分の手札</b>を選ぶ</span>
-            ) : (
+              <span>1. アタックに使う<b>自分の裏の手札</b>を選ぶ</span>
+            ) : !selectedTarget ? (
               <span>2. アタックする<b>相手の伏せカード</b>を選ぶ</span>
+            ) : (
+              <span>3. 相手のカードの<b>数字を宣言</b>する</span>
             )}
           </div>
-          <button
-            style={btnStyle(true, disabled || !selectedTarget || selectedOwnCard === null)}
-            onClick={onAttack}
-            disabled={disabled || !selectedTarget || selectedOwnCard === null}
-          >
-            {selectedTarget !== null && selectedOwnCard !== null
-              ? "選択したカードで宣言する！"
-              : "カードを選んでください"}
-          </button>
+          {selectedOwnCard !== null && selectedTarget && (
+            <>
+              <NumberSelector value={guessNumber} onChange={onGuessChange} disabled={disabled} />
+              <button
+                style={btnStyle(true, disabled || guessNumber === null)}
+                onClick={onAttack}
+                disabled={disabled || guessNumber === null}
+              >
+                {guessNumber !== null ? "アタック！" : "数字を選んでください"}
+              </button>
+            </>
+          )}
+          {(selectedOwnCard === null || !selectedTarget) && (
+            <button
+              style={btnStyle(true, true)}
+              disabled={true}
+            >
+              カードを選んでください
+            </button>
+          )}
         </>
       )}
 

@@ -176,42 +176,53 @@ function getBestAttackPair(knowledge, enemies, myHand, myHiddenCards) {
     enemy.hand.forEach((card, ci) => {
       if (!card.revealed) {
         const cands = knowledge.candidates[enemy.id][ci];
-        const matchingOwnCards = myHiddenCards.filter(myCard => cands.has(myCard.card.number));
-        
-        if (matchingOwnCards.length > 0) {
-          const size = cands.size;
-          if (size < minCandsSize) {
-            minCandsSize = size;
-            const myPicked = matchingOwnCards[Math.floor(Math.random() * matchingOwnCards.length)];
-            bestMatch = {
-              targetPlayerIndex: enemy.id,
-              targetCardIndex: ci,
-              myCardIndex: myPicked.index,
-              guessNumber: myPicked.card.number
-            };
-          }
+        const size = cands.size;
+        if (size > 0 && size < minCandsSize) {
+          minCandsSize = size;
+          const myPicked = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)];
+          const candArr = Array.from(cands);
+          bestMatch = {
+            targetPlayerIndex: enemy.id,
+            targetCardIndex: ci,
+            myCardIndex: myPicked.index,
+            guessNumber: candArr[Math.floor(Math.random() * candArr.length)]
+          };
         }
       }
     });
   });
 
   if (bestMatch) return bestMatch;
-  // Fallback if no matching cards conceptually
-  return cpuDecidePairEASY(enemies, myHiddenCards);
+  return cpuDecidePairEASY(enemies, myHiddenCards, knowledge);
 }
 
-function cpuDecidePairEASY(enemies, myHiddenCards) {
+function cpuDecidePairEASY(enemies, myHiddenCards, knowledge) {
   const cands = [];
   enemies.forEach(e => e.hand.forEach((c, ci) => { if (!c.revealed) cands.push({ p: e.id, c: ci }); }));
   if (cands.length === 0 || myHiddenCards.length === 0) return null;
   
   const target = cands[Math.floor(Math.random() * cands.length)];
   const myCard = myHiddenCards[Math.floor(Math.random() * myHiddenCards.length)];
+  
+  // Generate a random guess number (or from candidates if available)
+  let guessNumber;
+  if (knowledge) {
+    const targetCands = knowledge.candidates[target.p]?.[target.c];
+    if (targetCands && targetCands.size > 0) {
+      const arr = Array.from(targetCands);
+      guessNumber = arr[Math.floor(Math.random() * arr.length)];
+    } else {
+      guessNumber = Math.floor(Math.random() * 12);
+    }
+  } else {
+    guessNumber = Math.floor(Math.random() * 12);
+  }
+
   return {
     targetPlayerIndex: target.p,
     targetCardIndex: target.c,
     myCardIndex: myCard.index,
-    guessNumber: myCard.card.number
+    guessNumber
   };
 }
 

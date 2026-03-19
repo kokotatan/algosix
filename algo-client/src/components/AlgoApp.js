@@ -802,21 +802,41 @@ function PassScreen({ playerName, onReady, message = "に渡してください",
 }
 
 /* ─── Partner Toss Screen ─── */
-function PartnerTossScreen({ partnerName, hand, onToss }) {
+function PartnerTossScreen({ partnerName, hand, onToss, players, currentPlayer }) {
   const [selectedIdx, setSelectedIdx] = useState(null);
+
+  // Build a list of other players to show their card arrangements
+  const otherPlayers = players ? players.filter((_, i) => i !== (currentPlayer != null ? getPartnerIndex(players.length, currentPlayer) : -1)) : [];
 
   return (
     <ScreenWrapper showGeo={true}>
-      <div style={{ padding: 24, textAlign: "center", display: "flex", flexDirection: "column", flex: 1 }}>
+      <div style={{ padding: 24, textAlign: "center", display: "flex", flexDirection: "column", flex: 1, overflow: "auto" }}>
         <h2 style={{ fontSize: 20, margin: "0 0 8px", fontWeight: 800, fontFamily: "'Noto Sans JP', sans-serif" }}>
           {partnerName} さん
         </h2>
-        <p style={{ fontSize: 13, color: C.gray4, marginBottom: 24, fontWeight: 600 }}>
+        <p style={{ fontSize: 13, color: C.gray4, marginBottom: 16, fontWeight: 600 }}>
           手札から1枚選んでパートナーに見せましょう<br/>
           （裏向きのカードのみ選択可能）
         </p>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 32 }}>
+        {/* Show other players' card arrangements */}
+        {otherPlayers.length > 0 && (
+          <div style={{ marginBottom: 16, padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 12 }}>
+            <div style={{ fontSize: 11, color: C.gray4, fontWeight: 700, marginBottom: 8 }}>他のプレイヤーのカード配置</div>
+            {otherPlayers.map(p => (
+              <div key={p.id} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.black, marginBottom: 4 }}>{p.name}</div>
+                <div style={{ display: "flex", gap: 3, justifyContent: "center" }}>
+                  {p.hand.map((card) => (
+                    <Card key={card.id} card={card} size="sm" isOwn={false} showNumber={card.revealed} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 24 }}>
           {hand.map((card, idx) => (
             <Card
               key={card.id}
@@ -835,12 +855,12 @@ function PartnerTossScreen({ partnerName, hand, onToss }) {
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center" }}>
           {selectedIdx !== null ? (
-            <div style={{ marginBottom: 32 }}>
+            <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.gray4, marginBottom: 8 }}>見せるカード</div>
               <Card card={hand[selectedIdx]} size="xl" showNumber={true} />
             </div>
           ) : (
-            <div style={{ height: 110, marginBottom: 32 }} /> // placeholder
+            <div style={{ height: 90, marginBottom: 24 }} />
           )}
 
           <OutlinedButton
@@ -1068,7 +1088,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
         
         let newState;
         if (state.mode === "pair") {
-          newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex);
+          newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex, action.guessNumber);
         } else {
           newState = attack(state, action.targetPlayerIndex, action.targetCardIndex, action.guessNumber);
         }
@@ -1122,6 +1142,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
         <PartnerTossScreen
           partnerName={partner.name}
           hand={partner.hand}
+          players={state.players}
+          currentPlayer={currentPlayer}
           onToss={(cardIdx) => {
             const newState = partnerToss(state, cardIdx);
             onGameStateChange(newState);
@@ -1165,10 +1187,11 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
 
   const handleAttack = () => {
     if (state.mode === "pair") {
-      if (!selectedTarget || selectedOwnCard === null) return;
-      const newState = pairAttack(state, selectedTarget.player, selectedTarget.card, selectedOwnCard);
+      if (!selectedTarget || selectedOwnCard === null || guessNumber === null) return;
+      const newState = pairAttack(state, selectedTarget.player, selectedTarget.card, selectedOwnCard, guessNumber);
       setSelectedTarget(null);
       setSelectedOwnCard(null);
+      setGuessNumber(null);
       onGameStateChange(newState);
       if (newState.phase === "gameover") {
         setTimeout(() => onGameEnd(newState), 800);
