@@ -8,6 +8,9 @@ import {
 } from "./GameUI";
 import Tutorial from "./Tutorial";
 import { CpuKnowledge, shouldReattack, cpuSelectToss, cpuDecide } from "../lib/cpuAI";
+import { useFirebaseMultiplayer } from "../hooks/useFirebaseMultiplayer";
+import { OnlineSetupScreen, OnlineJoinScreen } from "./OnlineLobbyScreen";
+import { OnlineRoomScreen } from "./OnlineRoomScreen";
 import {
   initGame,
   drawCard,
@@ -39,172 +42,7 @@ const C = {
   border: "#222222",
 };
 
-/* ─── Geometric Decoration Colors ─── */
-const GEO_COLORS = [
-  "#e03030", "#28a028", "#2070d0", "#d0a020",
-  "#9040c0", "#e06020", "#20b0a0", "#c04080",
-  "#5060d0", "#40a060",
-];
-
-/* ─── Geometric Background Decorations ─── */
-function GeometricBG() {
-  const shapes = useMemo(() => {
-    const items = [];
-    // Circles
-    const circleData = [
-      { x: "5%", y: "8%", size: 80, color: GEO_COLORS[0] },
-      { x: "85%", y: "5%", size: 60, color: GEO_COLORS[1] },
-      { x: "10%", y: "75%", size: 55, color: GEO_COLORS[2] },
-      { x: "90%", y: "80%", size: 70, color: GEO_COLORS[3] },
-      { x: "15%", y: "40%", size: 35, color: GEO_COLORS[4] },
-      { x: "75%", y: "35%", size: 45, color: GEO_COLORS[5] },
-      { x: "50%", y: "90%", size: 40, color: GEO_COLORS[6] },
-      { x: "30%", y: "15%", size: 28, color: GEO_COLORS[7] },
-      { x: "92%", y: "50%", size: 30, color: GEO_COLORS[8] },
-      { x: "3%", y: "55%", size: 50, color: GEO_COLORS[9] },
-      { x: "60%", y: "12%", size: 42, color: GEO_COLORS[0] },
-      { x: "40%", y: "70%", size: 38, color: GEO_COLORS[1] },
-    ];
-    circleData.forEach((c, i) => {
-      items.push(
-        <div
-          key={`c${i}`}
-          style={{
-            position: "absolute",
-            left: c.x,
-            top: c.y,
-            width: c.size,
-            height: c.size,
-            borderRadius: "50%",
-            border: `1.5px solid ${c.color}`,
-            opacity: 0.3,
-            animation: `float ${6 + (i % 4)}s ease-in-out infinite`,
-            animationDelay: `${i * 0.5}s`,
-          }}
-        />
-      );
-    });
-
-    // Polygons (triangles, squares, pentagons, hexagons as SVG outlines)
-    const polyData = [
-      { x: "20%", y: "20%", size: 30, sides: 3, color: GEO_COLORS[2], rot: 15 },
-      { x: "80%", y: "15%", size: 25, sides: 5, color: GEO_COLORS[4], rot: 30 },
-      { x: "70%", y: "70%", size: 28, sides: 6, color: GEO_COLORS[6], rot: 0 },
-      { x: "25%", y: "85%", size: 22, sides: 4, color: GEO_COLORS[8], rot: 45 },
-      { x: "88%", y: "30%", size: 20, sides: 3, color: GEO_COLORS[0], rot: 60 },
-      { x: "8%", y: "30%", size: 26, sides: 5, color: GEO_COLORS[3], rot: 20 },
-      { x: "55%", y: "5%", size: 18, sides: 6, color: GEO_COLORS[7], rot: 10 },
-      { x: "45%", y: "85%", size: 24, sides: 4, color: GEO_COLORS[9], rot: 22 },
-    ];
-    polyData.forEach((p, i) => {
-      const points = [];
-      for (let j = 0; j < p.sides; j++) {
-        const angle = (Math.PI * 2 * j) / p.sides - Math.PI / 2;
-        points.push(
-          `${50 + 45 * Math.cos(angle)},${50 + 45 * Math.sin(angle)}`
-        );
-      }
-      items.push(
-        <div
-          key={`p${i}`}
-          style={{
-            position: "absolute",
-            left: p.x,
-            top: p.y,
-            width: p.size,
-            height: p.size,
-            opacity: 0.25,
-            transform: `rotate(${p.rot}deg)`,
-            animation: `float ${7 + (i % 3)}s ease-in-out infinite`,
-            animationDelay: `${i * 0.7}s`,
-          }}
-        >
-          <svg viewBox="0 0 100 100" width="100%" height="100%">
-            <polygon
-              points={points.join(" ")}
-              fill="none"
-              stroke={p.color}
-              strokeWidth="3"
-            />
-          </svg>
-        </div>
-      );
-    });
-    return items;
-  }, []);
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        pointerEvents: "none",
-        overflow: "hidden",
-        zIndex: 0,
-      }}
-    >
-      {shapes}
-    </div>
-  );
-}
-
-/* ─── Screen wrapper ─── */
-function ScreenWrapper({ children, showGeo = true }) {
-  return (
-    <div
-      style={{
-        height: "100svh",
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: C.bg,
-        overflow: "hidden",
-        animation: "fadeUp 1s ease",
-        position: "relative",
-      }}
-    >
-      {showGeo && <GeometricBG />}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Outlined Button ─── */
-function OutlinedButton({ children, onClick, disabled = false, selected = false, style = {} }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: "14px 24px",
-        borderRadius: 0,
-        border: `2px solid ${disabled ? C.gray2 : C.black}`,
-        background: selected ? C.black : C.white,
-        color: selected ? C.white : disabled ? C.gray3 : C.black,
-        fontSize: 16,
-        fontWeight: 700,
-        fontFamily: "'Noto Sans JP', sans-serif",
-        cursor: disabled ? "not-allowed" : "pointer",
-        transition: "all 0.2s",
-        opacity: disabled ? 0.4 : 1,
-        ...style,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+import { GeometricBG, ScreenWrapper, OutlinedButton } from "./UXComponents";
 
 /* ─── Menu Screen ─── */
 function MenuScreen({ onNavigate }) {
@@ -276,7 +114,7 @@ function MenuScreen({ onNavigate }) {
 
           <div style={{ display: "flex", gap: 12 }}>
             <OutlinedButton
-              disabled={true}
+              onClick={() => onNavigate("online_setup")}
               style={{ flex: 1, padding: "14px 12px", fontSize: 13 }}
             >
               オンライン戦
@@ -284,7 +122,7 @@ function MenuScreen({ onNavigate }) {
               <span style={{ fontSize: 10, fontWeight: 400 }}>（作成）</span>
             </OutlinedButton>
             <OutlinedButton
-              disabled={true}
+              onClick={() => onNavigate("online_join")}
               style={{ flex: 1, padding: "14px 12px", fontSize: 13 }}
             >
               オンライン戦
@@ -969,7 +807,8 @@ function RulesOverlay({ onClose }) {
 }
 
 /* ─── Game Screen ─── */
-function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNames, cpuSettings }) {
+function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNames, cpuSettings, onlineContext }) {
+  const { isHost, roomId, socket, emit, on, off, onlinePlayers } = onlineContext || {};
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedOwnCard, setSelectedOwnCard] = useState(null);
   const [guessNumber, setGuessNumber] = useState(null);
@@ -998,6 +837,98 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
     setSelectedOwnCard(null);
     setGuessNumber(null);
   }, [state.phase]);
+
+  // --- ONLINE STATE SYNC LOGIC ---
+
+  // Host: Broadcast masked state to peers whenever state changes
+  useEffect(() => {
+    if (!onlineContext || !isHost || !state) return;
+
+    onlinePlayers.forEach(p => {
+      if (p.isHost) return; // Skip self
+      
+      const pIndex = state.players.findIndex(sp => sp.name === p.name);
+      const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
+      
+      maskedState.players.forEach((sp, i) => {
+        if (i !== pIndex) {
+          sp.hand.forEach(c => {
+            if (!c.isRevealed) {
+              c.number = null; // hide number to prevent cheat
+            }
+          });
+        }
+      });
+      emit("host_sync_state", { roomId, targetId: p.id, state: maskedState });
+    });
+  }, [state, isHost, onlineContext, onlinePlayers, emit, roomId]);
+
+  // Peer: Receive state updates from host
+  useEffect(() => {
+    if (!onlineContext || isHost) return;
+    
+    const handleSync = (newState) => {
+      onGameStateChange(newState);
+      if (newState.phase === "gameover") {
+         setTimeout(() => onGameEnd(newState), 800);
+      }
+    };
+    on("sync_state", handleSync);
+    return () => off("sync_state", handleSync);
+  }, [onlineContext, isHost, on, off, onGameStateChange, onGameEnd]);
+
+  // --- ACTION DISPATCHER ---
+  const dispatchAction = useCallback((actionType, payload) => {
+    if (onlineContext && !isHost) {
+      // Peer sends action to host instead of executing it locally
+      emit("peer_action", { roomId, action: actionType, payload });
+      return;
+    }
+    
+    // Local / Host processing
+    onGameStateChange(prevState => {
+      if (!prevState) return prevState;
+      let newState = prevState;
+      switch (actionType) {
+        case "draw": 
+          newState = drawCard(prevState); 
+          break;
+        case "attack":
+          newState = attack(prevState, payload.targetPlayer, payload.targetCard, payload.guessNumber);
+          break;
+        case "pairAttack":
+          newState = pairAttack(prevState, payload.targetPlayer, payload.targetCard, payload.ownCard, payload.guessNumber);
+          break;
+        case "stay":
+          newState = prevState.mode === "pair" ? pairStayAction(prevState) : stayAction(prevState);
+          break;
+        case "continue":
+          newState = prevState.mode === "pair" ? pairContinueAction(prevState) : continueAction(prevState);
+          break;
+        case "toss":
+          newState = partnerToss(prevState, payload.cardIdx);
+          break;
+        case "startAttack":
+          newState = startAttackFromToss(prevState);
+          break;
+      }
+      
+      if (newState.phase === "gameover") {
+         setTimeout(() => onGameEnd(newState), 800);
+      }
+      return newState;
+    });
+  }, [onlineContext, isHost, emit, roomId, onGameStateChange, onGameEnd]);
+
+  // Host: Listen for peer actions and dispatch them
+  useEffect(() => {
+    if (!onlineContext || !isHost) return;
+    const handlePeerAction = (data) => {
+      dispatchAction(data.action, data.payload);
+    };
+    on("peer_action", handlePeerAction);
+    return () => off("peer_action", handlePeerAction);
+  }, [onlineContext, isHost, on, off, dispatchAction]);
 
   // Watch for wrong guesses to inform HARD CPU
   useEffect(() => {
@@ -1053,15 +984,14 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
         setIsThinking(false);
         const k = getKnowledge(partner.id);
         const tossedCardIdx = cpuSelectToss(cpuSettings.level, state, partner.id, curPlayer.id, k);
-        const newState = partnerToss(state, tossedCardIdx);
-        onGameStateChange(newState);
+        dispatchAction("toss", { cardIdx: tossedCardIdx });
       }, 1000);
       return () => { isUnmounted = true; clearTimeout(timer); };
     }
 
     // 3. Skip "pass_back" screen if current player is CPU
     if (state.phase === "pass_back" && curPlayer.isCpu) {
-       onGameStateChange(startAttackFromToss(state));
+       dispatchAction("startAttack");
        return;
     }
 
@@ -1086,14 +1016,21 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
         const action = cpuDecide(cpuSettings.level, state, curPlayer.id, k, state.mode);
         if (!action) { handleStay(); return; }
         
-        let newState;
+        let dispatched = false;
         if (state.mode === "pair") {
-          newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex, action.guessNumber);
+          dispatchAction("pairAttack", { 
+            targetPlayer: action.targetPlayerIndex, 
+            targetCard: action.targetCardIndex, 
+            ownCard: action.myCardIndex, 
+            guessNumber: action.guessNumber 
+          });
         } else {
-          newState = attack(state, action.targetPlayerIndex, action.targetCardIndex, action.guessNumber);
+          dispatchAction("attack", { 
+            targetPlayer: action.targetPlayerIndex, 
+            targetCard: action.targetCardIndex, 
+            guessNumber: action.guessNumber 
+          });
         }
-        onGameStateChange(newState);
-        if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
       }, 1500);
       return () => { isUnmounted = true; clearTimeout(timer); };
     }
@@ -1161,10 +1098,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             playerName={currentName}
             message="さんに戻してください"
             subMessage="攻撃を開始します"
-            onReady={() => {
-              const newState = startAttackFromToss(state);
-              onGameStateChange(newState);
-            }}
+          onReady={() => dispatchAction("startAttack", {})}
           />
         );
       }
@@ -1172,8 +1106,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   }
 
   const handleDraw = () => {
-    const newState = drawCard(state);
-    onGameStateChange(newState);
+    dispatchAction("draw");
   };
 
   const handleCardClick = (playerId, cardIdx, isOwnGroup) => {
@@ -1188,40 +1121,33 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   const handleAttack = () => {
     if (state.mode === "pair") {
       if (!selectedTarget || selectedOwnCard === null || guessNumber === null) return;
-      const newState = pairAttack(state, selectedTarget.player, selectedTarget.card, selectedOwnCard, guessNumber);
+      dispatchAction("pairAttack", { 
+        targetPlayer: selectedTarget.player, 
+        targetCard: selectedTarget.card, 
+        ownCard: selectedOwnCard, 
+        guessNumber: guessNumber 
+      });
       setSelectedTarget(null);
       setSelectedOwnCard(null);
       setGuessNumber(null);
-      onGameStateChange(newState);
-      if (newState.phase === "gameover") {
-        setTimeout(() => onGameEnd(newState), 800);
-      }
     } else {
       if (!selectedTarget || guessNumber === null) return;
-      const newState = attack(
-        state,
-        selectedTarget.player,
-        selectedTarget.card,
-        guessNumber
-      );
+      dispatchAction("attack", { 
+        targetPlayer: selectedTarget.player, 
+        targetCard: selectedTarget.card, 
+        guessNumber: guessNumber 
+      });
       setSelectedTarget(null);
       setGuessNumber(null);
-      onGameStateChange(newState);
-  
-      if (newState.phase === "gameover") {
-        setTimeout(() => onGameEnd(newState), 800);
-      }
     }
   };
 
   const handleStay = () => {
-    const newState = state.mode === "pair" ? pairStayAction(state) : stayAction(state);
-    onGameStateChange(newState);
+    dispatchAction("stay");
   };
 
   const handleContinue = () => {
-    const newState = state.mode === "pair" ? pairContinueAction(state) : continueAction(state);
-    onGameStateChange(newState);
+    dispatchAction("continue");
   };
 
   return (
@@ -1503,7 +1429,86 @@ export default function AlgoApp() {
   const [winner, setWinner] = useState(null);
   const [cpuSettings, setCpuSettings] = useState(null);
 
+  // Online Multiplayer State (Firebase Adaptive Hook)
+  const { connected, socket, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
+  const [onlineRoomId, setOnlineRoomId] = useState(null);
+  const [onlinePlayers, setOnlinePlayers] = useState([]);
+  const [isHost, setIsHost] = useState(false);
+  const [onlineConfig, setOnlineConfig] = useState(null); // { playerCount, mode }
+
+  // Automatically handle socket connection for room creation/joining
+  useEffect(() => {
+    on("room_created", (data) => {
+      setOnlineRoomId(data.roomId);
+      setScreen("online_room");
+    });
+
+    on("player_joined", (data) => {
+      setOnlinePlayers(data.players);
+      // If we joined successfully and we aren't already in the room screen (as a peer)
+      if (screen === "online_join") {
+        setScreen("online_room");
+      }
+    });
+
+    on("error", (error) => {
+      alert(error.message);
+    });
+
+    on("room_closed", (data) => {
+      alert(data.message);
+      setScreen("menu");
+      setOnlineRoomId(null);
+      setOnlinePlayers([]);
+      setIsHost(false);
+      disconnect();
+    });
+
+    on("player_left", (data) => {
+      setOnlinePlayers(data.players);
+    });
+
+    return () => {
+      off("room_created");
+      off("player_joined");
+      off("error");
+      off("room_closed");
+      off("player_left");
+    };
+  }, [on, off, screen, disconnect]);
+
+  const handleCreateOnlineRoom = useCallback((config) => {
+    connect();
+    setIsHost(true);
+    setOnlineConfig({ playerCount: config.playerCount, mode: config.mode });
+    setOnlinePlayers([{ id: "self", name: config.name, isHost: true }]); // Optimistic UI
+    
+    // Slight delay to ensure connection is ready before emitting
+    setTimeout(() => {
+      emit("create_room", { name: config.name, maxPlayers: config.playerCount });
+    }, 500);
+  }, [connect, emit]);
+
+  const handleJoinOnlineRoom = useCallback((data) => {
+    connect();
+    setIsHost(false);
+    setOnlineRoomId(data.roomId);
+    
+    setTimeout(() => {
+      emit("join_room", { roomId: data.roomId, name: data.name });
+    }, 500);
+  }, [connect, emit]);
+
+  const handleLeaveOnlineRoom = useCallback(() => {
+    disconnect();
+    setOnlineRoomId(null);
+    setOnlinePlayers([]);
+    setIsHost(false);
+    setScreen("menu");
+  }, [disconnect]);
+
   const handleStartGame = useCallback((names, mode, cpuOpts) => {
+    // Both Local and Online entry point? If online, names comes from onlinePlayers
     setPlayerNames(names);
     if (cpuOpts) {
       setCpuSettings(cpuOpts);
@@ -1514,6 +1519,33 @@ export default function AlgoApp() {
     }
     setScreen("game");
   }, []);
+
+  const handleOnlineHostStart = useCallback(() => {
+    if (!isHost) return;
+    const names = onlinePlayers.map(p => p.name);
+    // TODO: if length < maxPlayers, fill with CPUs...
+    // For now assume it requires full real players or host starts anyway
+    // Wait, the onlineConfig has playerCount and mode.
+    // If not full, we pad it with CPU names...
+    
+    let finalNames = [...names];
+    let cpuOpts = undefined;
+    
+    if (finalNames.length < onlineConfig.playerCount) {
+      const cpuCount = onlineConfig.playerCount - finalNames.length;
+      const cpuConfig = {};
+      for (let i = 0; i < cpuCount; i++) {
+        const idx = finalNames.length;
+        finalNames.push(`CPU ${i + 1}`);
+        cpuConfig[idx] = true; // CPU
+      }
+      cpuOpts = { level: "normal", cpuConfig };
+    }
+
+    handleStartGame(finalNames, onlineConfig.mode, cpuOpts);
+
+    // Initial sync of the generated game state will happen inside GameScreen when it mounts
+  }, [isHost, onlinePlayers, onlineConfig, handleStartGame]);
 
   const handleGameEnd = useCallback((finalState) => {
     setWinner(finalState.players[finalState.winner].name);
@@ -1546,6 +1578,21 @@ export default function AlgoApp() {
       return (
         <SetupScreen isCpuMode={isCpuSetup} onStart={handleStartGame} onBack={handleBackToMenu} />
       );
+    case "online_setup":
+      return <OnlineSetupScreen onCreate={handleCreateOnlineRoom} onBack={handleBackToMenu} />;
+    case "online_join":
+      return <OnlineJoinScreen onJoin={handleJoinOnlineRoom} onBack={handleBackToMenu} />;
+    case "online_room":
+      return (
+        <OnlineRoomScreen 
+          isHost={isHost} 
+          roomId={onlineRoomId} 
+          players={onlinePlayers} 
+          maxPlayers={onlineConfig?.playerCount || 4}
+          onStart={handleOnlineHostStart}
+          onLeave={handleLeaveOnlineRoom} 
+        />
+      );
     case "game":
       return (
         <GameScreen
@@ -1555,6 +1602,7 @@ export default function AlgoApp() {
           onHome={handleBackToMenu}
           playerNames={playerNames}
           cpuSettings={cpuSettings}
+          onlineContext={{ isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers }}
         />
       );
     case "result":
@@ -1565,3 +1613,4 @@ export default function AlgoApp() {
       return <MenuScreen onNavigate={setScreen} />;
   }
 }
+
