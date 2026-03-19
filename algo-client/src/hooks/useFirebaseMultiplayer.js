@@ -128,6 +128,10 @@ export function useFirebaseMultiplayer() {
            }
         });
         unsubscribeFuncs.current.push(unsubActions);
+      }).catch((err) => {
+        trigger("error", { message: "ルーム作成に失敗しました: " + err.message });
+        connectionRef.current.roomId = null;
+        connectionRef.current.isHost = false;
       });
       return;
     }
@@ -184,6 +188,9 @@ export function useFirebaseMultiplayer() {
           });
           unsubscribeFuncs.current.push(unsubState);
         });
+      }).catch((err) => {
+        trigger("error", { message: "ルーム参加に失敗しました: " + err.message });
+        connectionRef.current.roomId = null;
       });
       return;
     }

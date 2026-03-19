@@ -1716,7 +1716,11 @@ export default function AlgoApp() {
     });
 
     on("error", (error) => {
-      alert(error.message);
+      let msg = error.message;
+      if (msg && msg.includes("失敗しました")) {
+        msg += "\n\n※Firebase Database URLが未設定、または接続エラーの可能性があります。\n.env.localの NEXT_PUBLIC_FIREBASE_DATABASE_URL を確認してください。";
+      }
+      alert(msg);
     });
 
     on("room_closed", (data) => {
