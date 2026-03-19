@@ -39,7 +39,7 @@ function StampFloat({ stampData }) {
   );
 }
 
-export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart, onLeave, emit, myId }) {
+export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, mode, onStart, onLeave, emit, myId }) {
   const [copiedType, setCopiedType] = useState(null);
   const [stampCooldown, setStampCooldown] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -129,6 +129,14 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
             textShadow: "0 2px 4px rgba(0,0,0,0.1)"
           }}>
             {roomId}
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
+            <div style={{ background: "var(--black)", color: "var(--white)", padding: "4px 10px", borderRadius: "20px", fontSize: 11, fontWeight: 800 }}>
+              {maxPlayers}人対戦
+            </div>
+            <div style={{ background: "rgba(0,0,0,0.08)", color: "var(--black)", padding: "4px 10px", borderRadius: "20px", fontSize: 11, fontWeight: 800 }}>
+              {mode === "pair" ? "ペア戦" : "個人戦"}
+            </div>
           </div>
         </div>
 

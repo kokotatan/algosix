@@ -1920,6 +1920,7 @@ export default function AlgoApp() {
           roomId={onlineRoomId} 
           players={onlinePlayers} 
           maxPlayers={onlineConfig?.playerCount || 4}
+          mode={onlineConfig?.mode || "individual"}
           onStart={handleOnlineHostStart}
           onLeave={handleLeaveOnlineRoom}
           emit={emit}
