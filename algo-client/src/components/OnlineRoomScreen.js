@@ -248,6 +248,7 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
           )}
         <OutlinedButton onClick={onLeave}>退出する</OutlinedButton>
       </div>
-    </ScreenWrapper>
+    </div>
+  </ScreenWrapper>
   );
 }
