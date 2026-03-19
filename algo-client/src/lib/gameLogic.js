@@ -84,7 +84,7 @@ function isElim(player) {
  * @param {string[]} playerNames
  * @param {string} mode - "individual" or "pair"
  */
-export function initGame(playerNames, mode = "individual") {
+export function initGame(playerNames, mode = "individual", cpuSettings = []) {
   const playerCount = playerNames.length;
   let deck = shuffleDeck(createDeck());
 
@@ -96,7 +96,13 @@ export function initGame(playerNames, mode = "individual") {
   const players = playerNames.map((name, i) => {
     const hand = sortHand(deck.slice(di, di + handSize));
     di += handSize;
-    return { id: i, name, hand, isOut: false };
+    return { 
+      id: i, 
+      name, 
+      hand, 
+      isOut: false,
+      isCpu: cpuSettings[i] || false,
+    };
   });
 
   const teams = mode === "pair" ? {

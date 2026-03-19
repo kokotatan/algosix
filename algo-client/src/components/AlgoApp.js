@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   GameBoard,
   ActionPanel,
@@ -7,6 +7,7 @@ import {
   Card,
 } from "./GameUI";
 import Tutorial from "./Tutorial";
+import { runCpuTurn, CpuKnowledge } from "../lib/cpuAI";
 import {
   initGame,
   drawCard,
@@ -291,7 +292,7 @@ function MenuScreen({ onNavigate }) {
               <span style={{ fontSize: 10, fontWeight: 400 }}>（参加）</span>
             </OutlinedButton>
             <OutlinedButton
-              disabled={true}
+              onClick={() => onNavigate("setup_cpu")}
               style={{ flex: 1, padding: "14px 12px", fontSize: 13 }}
             >
               コンピュータ戦
@@ -325,11 +326,17 @@ function MenuScreen({ onNavigate }) {
 }
 
 /* ─── Setup Screen ─── */
-function SetupScreen({ onStart, onBack }) {
-  const [playerCount, setPlayerCount] = useState(4);
+function SetupScreen({ isCpuMode, onStart, onBack }) {
+  // Config
+  const [playerCount, setPlayerCount] = useState(isCpuMode ? 2 : 4);
   const [mode, setMode] = useState("individual"); // individual or pair
   const [names, setNames] = useState(["Player1", "Player2", "Player3", "Player4"]);
   const [step, setStep] = useState("config"); // config or names
+
+  // CPU Specific Config
+  const [cpuCount, setCpuCount] = useState(1);
+  const [partnerType, setPartnerType] = useState("cpu"); // "cpu" or "human"
+  const [cpuLevel, setCpuLevel] = useState("normal");
 
   const handleCountChange = (count) => {
     setPlayerCount(count);
@@ -346,11 +353,30 @@ function SetupScreen({ onStart, onBack }) {
     setNames(newNames);
   };
 
-  const canStart = names.slice(0, playerCount).every((n) => n.trim().length > 0);
+  const canStart = names.slice(0, playerCount).every((n) => n.trim().length > 0) || isCpuMode;
 
   const handleStart = () => {
     if (canStart) {
-      onStart(names.slice(0, playerCount).map((n) => n.trim()), mode);
+      if (isCpuMode) {
+        let cpuConfig = [];
+        let finalNames = [...names.slice(0, playerCount).map(n => n.trim() || "Player")];
+        if (mode === "individual") {
+          cpuConfig = Array.from({ length: playerCount }, (_, i) => i > 0 && i <= cpuCount);
+          for (let i = 1; i <= cpuCount; i++) finalNames[i] = `CPU-${i}`;
+        } else {
+          cpuConfig = Array.from({ length: playerCount }, (_, i) => {
+            if (i === 0) return false;
+            if (i === 2) return partnerType === "cpu";
+            return true;
+          });
+          finalNames[1] = "CPU-1 (敵)";
+          finalNames[3] = "CPU-2 (敵)";
+          if (partnerType === "cpu") finalNames[2] = "CPU (味方)";
+        }
+        onStart(finalNames, mode, { level: cpuLevel, cpuConfig });
+      } else {
+        onStart(names.slice(0, playerCount).map((n) => n.trim()), mode);
+      }
     }
   };
 
@@ -466,16 +492,11 @@ function SetupScreen({ onStart, onBack }) {
             >
               対戦モードを選択してください
             </div>
-            <div style={{ display: "flex", gap: 0 }}>
+            <div style={{ display: "flex", gap: 0, justifyContent: "center" }}>
               <OutlinedButton
                 onClick={() => setMode("individual")}
                 selected={mode === "individual"}
-                style={{
-                  width: 140,
-                  height: 56,
-                  fontSize: 18,
-                  padding: 0,
-                }}
+                style={{ width: 140, height: 56, fontSize: 18, padding: 0 }}
               >
                 個人戦
               </OutlinedButton>
@@ -483,12 +504,7 @@ function SetupScreen({ onStart, onBack }) {
                 onClick={() => canPair && setMode("pair")}
                 selected={mode === "pair"}
                 disabled={!canPair}
-                style={{
-                  width: 140,
-                  height: 56,
-                  fontSize: 18,
-                  padding: 0,
-                }}
+                style={{ width: 140, height: 56, fontSize: 18, padding: 0 }}
               >
                 ペア戦
               </OutlinedButton>
@@ -504,6 +520,67 @@ function SetupScreen({ onStart, onBack }) {
               *人数によってペア戦が選べます
             </div>
           </div>
+
+          {/* CPU Config */}
+          {isCpuMode && mode === "individual" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.black, marginBottom: 12, fontFamily: "'Noto Sans JP', sans-serif" }}>
+                CPUの数
+              </div>
+              <div style={{ display: "flex", gap: 0, justifyContent: "center" }}>
+                {[1, 2, 3].map(n => n < playerCount && (
+                  <OutlinedButton
+                    key={n}
+                    onClick={() => setCpuCount(n)}
+                    selected={cpuCount === n}
+                    style={{ width: 64, height: 56, fontSize: 16, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    {n}体
+                  </OutlinedButton>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isCpuMode && mode === "pair" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.black, marginBottom: 12, fontFamily: "'Noto Sans JP', sans-serif" }}>
+                パートナー
+              </div>
+              <div style={{ display: "flex", gap: 0, justifyContent: "center" }}>
+                <OutlinedButton
+                  onClick={() => setPartnerType("cpu")}
+                  selected={partnerType === "cpu"}
+                  style={{ padding: "12px 24px", fontSize: 15 }}
+                >
+                  CPU
+                </OutlinedButton>
+                <OutlinedButton
+                  onClick={() => setPartnerType("human")}
+                  selected={partnerType === "human"}
+                  style={{ padding: "12px 24px", fontSize: 15 }}
+                >
+                  同じ端末の人間
+                </OutlinedButton>
+              </div>
+            </div>
+          )}
+
+          {isCpuMode && (
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.black, marginBottom: 12, fontFamily: "'Noto Sans JP', sans-serif" }}>
+                CPUの強さ
+              </div>
+              <div style={{ display: "flex", gap: 0, justifyContent: "center" }}>
+                <OutlinedButton onClick={() => setCpuLevel("easy")} selected={cpuLevel === "easy"} style={{ padding: "12px 16px", fontSize: 13 }}>
+                  EASY (ランダム)
+                </OutlinedButton>
+                <OutlinedButton onClick={() => setCpuLevel("normal")} selected={cpuLevel === "normal"} style={{ padding: "12px 16px", fontSize: 13 }}>
+                  NORMAL (基本推論)
+                </OutlinedButton>
+              </div>
+            </div>
+          )}
 
           {/* Next Button */}
           <button
@@ -872,32 +949,91 @@ function RulesOverlay({ onClose }) {
 }
 
 /* ─── Game Screen ─── */
-function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNames }) {
+function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNames, cpuSettings }) {
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedOwnCard, setSelectedOwnCard] = useState(null);
   const [guessNumber, setGuessNumber] = useState(null);
   const [showPassScreen, setShowPassScreen] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
 
   const state = gameState;
   const currentPlayer = state.currentPlayer;
   const cardSize = getCardSize(playerNames.length);
 
+  const cpuKnowledgeRefs = useRef({});
+
   useEffect(() => {
-    if (state.mode === "individual") {
+    if (state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
       setShowPassScreen(true);
     }
     setSelectedTarget(null);
     setSelectedOwnCard(null);
     setGuessNumber(null);
-  }, [currentPlayer, state.mode]);
+  }, [currentPlayer, state.mode, cpuSettings, state.players]);
 
   useEffect(() => {
     setSelectedTarget(null);
     setSelectedOwnCard(null);
     setGuessNumber(null);
   }, [state.phase]);
+
+  // CPU Turn Execution
+  useEffect(() => {
+    if (!cpuSettings || state.phase === "gameover") return;
+    const curPlayer = state.players[currentPlayer];
+    if (!curPlayer.isCpu) return;
+
+    if (state.phase === "continue") {
+      setIsThinking(true);
+      const timer = setTimeout(() => {
+        setIsThinking(false);
+        // Simple 50% chance to re-attack for easy
+        if (Math.random() > 0.5) handleContinue();
+        else handleStay();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    if (state.phase !== "draw" && state.phase !== "pass_to_partner") return;
+
+    if (!cpuKnowledgeRefs.current[curPlayer.id]) {
+      cpuKnowledgeRefs.current[curPlayer.id] = new CpuKnowledge(state.players, curPlayer.id, cpuSettings.level);
+    }
+    const knowledge = cpuKnowledgeRefs.current[curPlayer.id];
+
+    let isUnmounted = false;
+
+    runCpuTurn(state, curPlayer.id, knowledge, cpuSettings.level, state.mode, {
+      setThinking: (t) => { if (!isUnmounted) setIsThinking(t); },
+      onAction: async (action) => {
+        if (isUnmounted) return;
+        if (state.mode === "pair") {
+          const newState = pairAttack(state, action.targetPlayerIndex, action.targetCardIndex, action.myCardIndex);
+          onGameStateChange(newState);
+          if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
+          return newState.lastAction?.type === "correct";
+        } else {
+          const newState = attack(state, action.targetPlayerIndex, action.targetCardIndex, action.guessNumber);
+          onGameStateChange(newState);
+          if (newState.phase === "gameover") setTimeout(() => onGameEnd(newState), 800);
+          return newState.lastAction?.type === "correct";
+        }
+      },
+      onToss: (tossInfo) => {
+        if (isUnmounted) return;
+        if (tossInfo.waitForConfirm) {
+          const newState = partnerToss(state, tossInfo.tossedCardInfo.cardIndex);
+          onGameStateChange(newState);
+        }
+      },
+      waitForConfirm: () => new Promise(res => setTimeout(res, 800)),
+    });
+
+    return () => { isUnmounted = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlayer, state.phase]);
 
   if (state.phase === "gameover") {
     return null;
@@ -1176,6 +1312,23 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           justifyContent: "center",
         }}
       >
+        {isThinking && (
+          <div style={{
+            position: "absolute",
+            top: 60,
+            background: C.black,
+            color: C.white,
+            padding: "8px 16px",
+            fontSize: 14,
+            fontWeight: 700,
+            borderRadius: 20,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 10,
+            fontFamily: "'Noto Sans JP', sans-serif"
+          }}>
+            {state.players[currentPlayer].name} が考え中...
+          </div>
+        )}
         <ActionPanel
           phase={state.phase}
           mode={state.mode}
@@ -1191,6 +1344,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           onGuessChange={setGuessNumber}
           currentPlayerName={state.players[currentPlayer].name}
           lastAction={state.lastAction}
+          disabled={isThinking}
         />
       </div>
     </ScreenWrapper>
@@ -1265,14 +1419,21 @@ function ResultScreen({ winner, onBackToMenu }) {
 /* ─── Main AlgoApp ─── */
 export default function AlgoApp() {
   const [screen, setScreen] = useState("menu");
+  const [isCpuSetup, setIsCpuSetup] = useState(false);
   const [playerNames, setPlayerNames] = useState([]);
   const [gameState, setGameState] = useState(null);
   const [winner, setWinner] = useState(null);
+  const [cpuSettings, setCpuSettings] = useState(null);
 
-  const handleStartGame = useCallback((names, mode) => {
+  const handleStartGame = useCallback((names, mode, cpuOpts) => {
     setPlayerNames(names);
-    const state = initGame(names, mode);
-    setGameState(state);
+    if (cpuOpts) {
+      setCpuSettings(cpuOpts);
+      setGameState(initGame(names, mode, cpuOpts.cpuConfig));
+    } else {
+      setCpuSettings(null);
+      setGameState(initGame(names, mode));
+    }
     setScreen("game");
   }, []);
 
@@ -1290,12 +1451,22 @@ export default function AlgoApp() {
 
   switch (screen) {
     case "menu":
-      return <MenuScreen onNavigate={setScreen} />;
+      return <MenuScreen onNavigate={(target) => {
+        if (target === "setup_cpu") {
+          setIsCpuSetup(true);
+          setScreen("setup");
+        } else if (target === "setup") {
+          setIsCpuSetup(false);
+          setScreen("setup");
+        } else {
+          setScreen(target);
+        }
+      }} />;
     case "tutorial":
       return <Tutorial onComplete={handleBackToMenu} />;
     case "setup":
       return (
-        <SetupScreen onStart={handleStartGame} onBack={handleBackToMenu} />
+        <SetupScreen isCpuMode={isCpuSetup} onStart={handleStartGame} onBack={handleBackToMenu} />
       );
     case "game":
       return (
@@ -1305,6 +1476,7 @@ export default function AlgoApp() {
           onGameEnd={handleGameEnd}
           onHome={handleBackToMenu}
           playerNames={playerNames}
+          cpuSettings={cpuSettings}
         />
       );
     case "result":

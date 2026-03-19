@@ -323,7 +323,7 @@ export function DeckStack({ count, drawnCard, showDrawn }) {
 }
 
 /* ─── Number Selector Component ─── */
-export function NumberSelector({ value, onChange }) {
+export function NumberSelector({ value, onChange, disabled }) {
   const gridStyle = {
     display: "grid",
     gridTemplateColumns: "repeat(6, 1fr)",
@@ -336,7 +336,8 @@ export function NumberSelector({ value, onChange }) {
       {Array.from({ length: 12 }, (_, i) => (
         <button
           key={i}
-          onClick={() => onChange(i)}
+          disabled={disabled}
+          onClick={() => !disabled && onChange(i)}
           style={{
             width: 36,
             height: 36,
@@ -374,6 +375,7 @@ export function ActionPanel({
   onGuessChange,
   currentPlayerName,
   lastAction,
+  disabled,
 }) {
   const panelStyle = {
     background: C.white,
@@ -387,19 +389,22 @@ export function ActionPanel({
     maxWidth: 400,
   };
 
-  const btnStyle = (filled = true, disabled = false) => ({
-    padding: "10px 24px",
-    borderRadius: 0,
-    border: `2px solid ${disabled ? C.gray2 : C.black}`,
-    background: disabled ? C.gray1 : filled ? C.black : C.white,
-    color: disabled ? C.gray3 : filled ? C.white : C.black,
-    fontSize: 15,
-    fontWeight: 700,
-    fontFamily: "'Noto Sans JP', sans-serif",
-    cursor: disabled ? "not-allowed" : "pointer",
-    transition: "all 0.2s",
-    minWidth: 100,
-  });
+  const btnStyle = (filled = true, isDisabled = false) => {
+    const finalDisabled = disabled || isDisabled;
+    return {
+      padding: "10px 24px",
+      borderRadius: 0,
+      border: `2px solid ${finalDisabled ? C.gray2 : C.black}`,
+      background: finalDisabled ? C.gray1 : filled ? C.black : C.white,
+      color: finalDisabled ? C.gray3 : filled ? C.white : C.black,
+      fontSize: 15,
+      fontWeight: 700,
+      fontFamily: "'Noto Sans JP', sans-serif",
+      cursor: finalDisabled ? "not-allowed" : "pointer",
+      transition: "all 0.2s",
+      minWidth: 100,
+    };
+  };
 
   const labelStyle = {
     fontSize: 13,
@@ -436,7 +441,7 @@ export function ActionPanel({
       {phase === "draw" && (
         <>
           <div style={labelStyle}>{currentPlayerName} のターン</div>
-          <button style={btnStyle(true)} onClick={onDraw}>
+          <button style={btnStyle(true)} onClick={onDraw} disabled={disabled}>
             カードを引く
           </button>
         </>
@@ -456,11 +461,11 @@ export function ActionPanel({
           </div>
           {selectedTarget && (
             <>
-              <NumberSelector value={guessNumber} onChange={onGuessChange} />
+              <NumberSelector value={guessNumber} onChange={onGuessChange} disabled={disabled} />
               <button
                 style={btnStyle(true, guessNumber === null)}
                 onClick={onAttack}
-                disabled={guessNumber === null}
+                disabled={disabled || guessNumber === null}
               >
                 アタック！
               </button>
@@ -484,9 +489,9 @@ export function ActionPanel({
             )}
           </div>
           <button
-            style={btnStyle(true, !selectedTarget || selectedOwnCard === null)}
+            style={btnStyle(true, disabled || !selectedTarget || selectedOwnCard === null)}
             onClick={onAttack}
-            disabled={!selectedTarget || selectedOwnCard === null}
+            disabled={disabled || !selectedTarget || selectedOwnCard === null}
           >
             {selectedTarget !== null && selectedOwnCard !== null
               ? "選択したカードで宣言する！"
@@ -508,10 +513,10 @@ export function ActionPanel({
             正解！ 続けますか？
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button style={btnStyle(true)} onClick={onContinue}>
+            <button style={btnStyle(true, disabled)} onClick={onContinue} disabled={disabled}>
               再アタック
             </button>
-            <button style={btnStyle(false)} onClick={onStay}>
+            <button style={btnStyle(false, disabled)} onClick={onStay} disabled={disabled}>
               ステイ
             </button>
           </div>
