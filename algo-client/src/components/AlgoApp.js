@@ -161,7 +161,7 @@ function MenuScreen({ onNavigate }) {
             onClick={() => onNavigate("tutorial")}
             style={{ height: 60, fontSize: 16, borderRadius: "30px" }}
           >
-            🕹️ 初めての方はこちら
+            初めての方はこちら
           </OutlinedButton>
 
           <OutlinedButton
@@ -1377,7 +1377,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           >
             ALGOSIX
           </span>
-          <div style={{ 
+          <div 
+          style={{ 
             background: "var(--gray1)", 
             padding: "4px 10px", 
             borderRadius: "20px", 
@@ -1388,7 +1389,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             alignItems: "center",
             gap: 4
           }}>
-            <span style={{ fontSize: 12 }}>🎴</span> {state.deck.length}
+            DECK {state.deck.length}
           </div>
         </div>
         
@@ -1416,34 +1417,38 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           <button
             onClick={() => setShowRules(true)}
             style={{
-              width: 32, height: 32,
-              borderRadius: "50%",
+              height: 32,
+              padding: "0 12px",
+              borderRadius: "20px",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
+              fontSize: 11,
+              fontWeight: 800,
+              color: "var(--gray4)",
               transition: "all 0.2s"
             }}
-            title="ルール"
           >
-            📋
+            RULE
           </button>
           <button
             onClick={() => setShowHomeConfirm(true)}
             style={{
-              width: 32, height: 32,
-              borderRadius: "50%",
+              height: 32,
+              padding: "0 12px",
+              borderRadius: "20px",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
+              fontSize: 11,
+              fontWeight: 800,
+              color: "var(--gray4)",
               transition: "all 0.2s"
             }}
-            title="ホーム"
           >
-            🏠
+            HOME
           </button>
         </div>
       </div>

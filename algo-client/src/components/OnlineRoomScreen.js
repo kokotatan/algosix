@@ -246,7 +246,14 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
         )}
       </div>
     </ScreenWrapper>
-  );
+    );
 }
-  );
-}
+
+const ConnDot = ({ connected }) => (
+  <div style={{ 
+    width: 8, height: 8, borderRadius: "50%", 
+    background: connected === false ? "var(--red)" : connected === true ? "var(--green)" : "var(--gray3)",
+    marginLeft: 8,
+    boxShadow: connected ? "0 0 8px currentColor" : "none"
+  }} />
+);
