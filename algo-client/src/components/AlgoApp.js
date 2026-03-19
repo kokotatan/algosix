@@ -1355,6 +1355,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             color: C.black,
             flexShrink: 0
           }}
+        >
           ALGOSIX
         </span>
         
