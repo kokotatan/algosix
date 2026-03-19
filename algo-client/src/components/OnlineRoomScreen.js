@@ -181,7 +181,7 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, onStart,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 14, fontWeight: 900, marginRight: 12
                 }}>
-                  {p.seatIndex + 1}
+                  {(p.seatIndex ?? index) + 1}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontWeight: 800, fontSize: 16, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>

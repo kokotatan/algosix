@@ -98,6 +98,7 @@ export function useFirebaseMultiplayer() {
           name: payload.name,
           isHost: true,
           connected: true,
+          seatIndex: 0,
         });
       }).then(() => {
         // Delete room on disconnect if I am host
@@ -149,11 +150,15 @@ export function useFirebaseMultiplayer() {
       connectionRef.current.roomId = roomId;
       connectionRef.current.isHost = false;
       
-      // Firebase connection timeout to prevent hanging on bad URL
+      // Firebase connection timeout to prevent hanging on bad URL or slow network
       const timeoutId = setTimeout(() => {
-        trigger("error", { message: "通信タイムアウト: Firebaseとの接続に失敗しました。\n\n※.env.local の NEXT_PUBLIC_FIREBASE_DATABASE_URL が正しく設定されているか確認してください。" });
+        trigger("error", { 
+          message: "【接続タイムアウト】\nFirebaseとの接続に時間がかかっています。\n\n" +
+                   "1. ページを「強力に更新(Ctrl+F5)」してみてください。\n" +
+                   "2. Vercelの設定で NEXT_PUBLIC_FIREBASE_DATABASE_URL が正しく設定されているか、再デプロイが完了しているか確認してください。"
+        });
         connectionRef.current.roomId = null;
-      }, 5000);
+      }, 10000);
 
       const roomMetaRef = ref(db, `rooms/${roomId}/meta`);
       get(roomMetaRef).then((snapshot) => {

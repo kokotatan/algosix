@@ -1764,7 +1764,9 @@ export default function AlgoApp() {
     on("error", (error) => {
       let msg = error.message;
       if (msg && msg.includes("失敗しました")) {
-        msg += "\n\n※Firebase Database URLが未設定、または接続エラーの可能性があります。\n.env.localの NEXT_PUBLIC_FIREBASE_DATABASE_URL を確認してください。";
+        msg = "【Firebase接続エラー】\n通信タイムアウト: Firebaseとの接続に失敗しました。\n\n" +
+              "ローカル開発の場合: .env.local の NEXT_PUBLIC_FIREBASE_DATABASE_URL を確認してください。\n" +
+              "公開サーバーの場合: Vercelなどの環境変数設定に NEXT_PUBLIC_FIREBASE_DATABASE_URL が追加され、再デプロイされているか確認してください。";
       }
       alert(msg);
     });
