@@ -210,6 +210,9 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, mode, on
                 </div>
                 
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {p.id !== myId && p.ready && (
+                    <span style={{ fontSize: 10, color: "var(--green)", fontWeight: 900, marginRight: 4 }}>READY</span>
+                  )}
                   {isHost && index > 0 && (
                     <button className="swap-btn-new" 
                       style={{ background: "none", border: "1px solid var(--gray2)", borderRadius: "6px", width: 28, height: 28, cursor: "pointer", fontSize: 14 }}
@@ -242,16 +245,32 @@ export function OnlineRoomScreen({ isHost, roomId, players, maxPlayers, mode, on
         {/* Start/Leave Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "24px auto 16px", width: "100%" }}>
           {isHost ? (
-            <OutlinedButton
-              onClick={onStart}
-              selected={true}
-              disabled={connectedPlayers < 2}
-            >
-              ゲームを開始する
-            </OutlinedButton>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {!players.every(p => p.isHost || p.ready) && (
+                <div style={{ fontSize: 11, color: "var(--red)", fontWeight: 700, textAlign: "center", marginBottom: 4 }}>
+                  全員の準備完了を待っています...
+                </div>
+              )}
+              <OutlinedButton
+                onClick={onStart}
+                selected={players.every(p => p.isHost || p.ready) && connectedPlayers >= 2}
+                disabled={!players.every(p => p.isHost || p.ready) || connectedPlayers < 2}
+              >
+                ゲームを開始する
+              </OutlinedButton>
+            </div>
           ) : (
-            <div style={{ fontSize: 13, color: "#606060", marginBottom: 4, fontWeight: 600 }}>
-              ホストの開始を待っています...
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <OutlinedButton
+                onClick={() => emit("toggle_ready", { roomId, ready: !players.find(p => p.id === myId)?.ready })}
+                selected={players.find(p => p.id === myId)?.ready}
+                style={{ background: players.find(p => p.id === myId)?.ready ? "var(--green)" : "var(--black)", color: "var(--white)", border: "none" }}
+              >
+                {players.find(p => p.id === myId)?.ready ? "準備完了！" : "準備OK？"}
+              </OutlinedButton>
+              <div style={{ fontSize: 13, color: "#606060", marginBottom: 4, fontWeight: 600, textAlign: "center" }}>
+                ホストの開始を待っています...
+              </div>
             </div>
           )}
         <OutlinedButton onClick={onLeave}>退出する</OutlinedButton>

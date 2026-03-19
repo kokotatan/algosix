@@ -11,14 +11,24 @@ export function useFirebaseMultiplayer() {
   const listenersRef = useRef({}); // Stores 'on' callbacks
   const connectionRef = useRef({ roomId: null, selfId: null, isHost: false });
   const unsubscribeFuncs = useRef([]); // Stores cleanup functions for RTDB listeners
+  const actionsListenerRef = useRef(null); // peer_action リスナーの登録状態を管理
 
-  // Connect is just setting "connected" for Firebase, since initialized app is always ready
+  const [selfId] = useState(() => {
+    if (typeof window === "undefined") return null;
+    let id = sessionStorage.getItem("algo_self_id");
+    if (!id) {
+      id = "user_" + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem("algo_self_id", id);
+    }
+    return id;
+  });
+
+  useEffect(() => {
+    connectionRef.current.selfId = selfId;
+  }, [selfId]);
+
   const connect = useCallback(() => {
     setConnected(true);
-    // Generate a quick random ID for the current user's session
-    if (!connectionRef.current.selfId) {
-       connectionRef.current.selfId = Math.random().toString(36).substr(2, 9);
-    }
   }, []);
 
   const disconnect = useCallback(() => {
@@ -36,7 +46,8 @@ export function useFirebaseMultiplayer() {
     // Cleanup all RTDB subscriptions
     unsubscribeFuncs.current.forEach(unsub => unsub());
     unsubscribeFuncs.current = [];
-    
+    actionsListenerRef.current = null; // リスナー状態をリセット
+
     setConnected(false);
     connectionRef.current = { roomId: null, selfId: null, isHost: false };
   }, []);
@@ -64,8 +75,23 @@ export function useFirebaseMultiplayer() {
     }
   }, []);
 
+  // ホスト用 peer_action リスナーを登録する（二重登録防止付き）
+  const registerActionsListener = useCallback((roomId) => {
+    if (actionsListenerRef.current) return; // 既に登録済み
+    const actionsRef = ref(db, `rooms/${roomId}/actions`);
+    const unsubActions = onChildAdded(actionsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const actionData = snapshot.val();
+        trigger("peer_action", actionData);
+        remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
+      }
+    });
+    actionsListenerRef.current = unsubActions;
+    unsubscribeFuncs.current.push(unsubActions);
+  }, [db, trigger]);
+
   // Map "socket.emit" concepts into Firebase Realtime DB writes
-  const emit = useCallback((event, payload) => {
+  const emit = useCallback((event, data) => {
     const { selfId } = connectionRef.current;
     if (!selfId) return;
 
@@ -74,7 +100,7 @@ export function useFirebaseMultiplayer() {
       const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
       connectionRef.current.roomId = roomId;
       connectionRef.current.isHost = true;
-      
+
       const roomRef = ref(db, `rooms/${roomId}`);
       const myPlayerRef = ref(db, `rooms/${roomId}/players/${selfId}`);
 
@@ -87,8 +113,8 @@ export function useFirebaseMultiplayer() {
 
       // Set room meta
       set(ref(db, `rooms/${roomId}/meta`), {
-        playerCount: payload.playerCount,
-        mode: payload.mode,
+        playerCount: data.playerCount,
+        mode: data.mode,
         hostId: selfId,
         createdAt: Date.now()
       }).then(() => {
@@ -96,7 +122,7 @@ export function useFirebaseMultiplayer() {
         // Add self to players
         return set(myPlayerRef, {
           id: selfId,
-          name: payload.name,
+          name: data.name,
           isHost: true,
           connected: true,
           seatIndex: 0,
@@ -128,16 +154,7 @@ export function useFirebaseMultiplayer() {
         unsubscribeFuncs.current.push(unsubRematch);
         
         // Listen for peer actions (Host only)
-        const actionsRef = ref(db, `rooms/${roomId}/actions`);
-        const unsubActions = onChildAdded(actionsRef, (snapshot) => {
-           if (snapshot.exists()) {
-              const actionData = snapshot.val();
-              trigger("peer_action", actionData);
-              // Clean up action so history doesn't grow infinitely? (Optional, but good for performance)
-              remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
-           }
-        });
-        unsubscribeFuncs.current.push(unsubActions);
+        registerActionsListener(roomId);
       }).catch((err) => {
         trigger("error", { message: "ルーム作成に失敗しました: " + err.message });
         connectionRef.current.roomId = null;
@@ -157,13 +174,13 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "join_room") {
-      const roomId = payload.roomId;
+      const roomId = data.roomId;
       connectionRef.current.roomId = roomId;
       connectionRef.current.isHost = false;
-      
+
       // Firebase connection timeout to prevent hanging on bad URL or slow network
       const timeoutId = setTimeout(() => {
-        trigger("error", { 
+        trigger("error", {
           message: "【接続タイムアウト】\nFirebaseとの接続に時間がかかっています。\n\n" +
                    "1. ページを「強力に更新(Ctrl+F5)」してみてください。\n" +
                    "2. Vercelの設定で NEXT_PUBLIC_FIREBASE_DATABASE_URL が正しく設定されているか、再デプロイが完了しているか確認してください。"
@@ -182,19 +199,25 @@ export function useFirebaseMultiplayer() {
         const meta = snapshot.val();
         // Notify the app about the room configuration immediately
         trigger("room_joined", { roomId, config: meta });
-        
+
         const myPlayerRef = ref(db, `rooms/${roomId}/players/${selfId}`);
-        set(myPlayerRef, {
-          id: selfId,
-          name: payload.name,
-          isHost: false,
-          connected: true
+        const playersRef = ref(db, `rooms/${roomId}/players`);
+
+        // 既存プレイヤー数を確認して次の seatIndex を決定する
+        get(playersRef).then((playerSnap) => {
+          const seatIndex = playerSnap.exists() ? Object.keys(playerSnap.val()).length : 1;
+          return set(myPlayerRef, {
+            id: selfId,
+            name: data.name,
+            isHost: false,
+            connected: true,
+            seatIndex,
+          });
         }).then(() => {
           // Update connection state on disconnect
           onDisconnect(myPlayerRef).update({ connected: false });
-          
+
           // Listen to player updates
-          const playersRef = ref(db, `rooms/${roomId}/players`);
           const unsubPlayers = onValue(playersRef, (psnap) => {
              if (psnap.exists()) {
                  const playersObject = psnap.val();
@@ -240,32 +263,35 @@ export function useFirebaseMultiplayer() {
     }
     
     if (event === "host_sync_state") {
-       // Host writes state specifically to the targetPeer's node
-       const { roomId, targetId, state } = payload;
-       if (roomId && targetId) {
-          set(ref(db, `rooms/${roomId}/states/${targetId}`), state);
-       }
-       return;
+      const { roomId, targetId, state } = data;
+      if (roomId && targetId) {
+        set(ref(db, `rooms/${roomId}/states/${targetId}`), state);
+      }
+      return;
     }
-    
+
     if (event === "peer_action") {
-       // Peer pushes an action to the actions list for Host to process
-       const { roomId, action, payload: actionPayload } = payload;
-       if (roomId) {
-          push(ref(db, `rooms/${roomId}/actions`), {
-            senderId: selfId,
-            action,
-            payload: actionPayload,
-            timestamp: Date.now()
-          });
-       }
-       return;
+      // Peer pushes an action to the actions list for Host to process
+      const { roomId, action, payload } = data;
+      if (roomId) {
+        push(ref(db, `rooms/${roomId}/actions`), {
+          senderId: selfId,
+          action,
+          payload,
+          timestamp: Date.now()
+        });
+      }
+      return;
     }
 
     if (event === "start_game") {
-      const { roomId } = payload;
+      const { roomId } = data;
       if (roomId) {
         set(ref(db, `rooms/${roomId}/meta/started`), true);
+        // ホストの peer_action リスナーが失われていた場合に備えて再確認・再登録
+        if (connectionRef.current.isHost) {
+          registerActionsListener(roomId);
+        }
       }
       return;
     }
@@ -273,7 +299,7 @@ export function useFirebaseMultiplayer() {
     // --- NEW ONLINE UX ACTIONS ---
 
     if (event === "send_stamp") {
-      const { roomId, stampId } = payload;
+      const { roomId, stampId } = data;
       if (roomId && selfId) {
         set(ref(db, `rooms/${roomId}/players/${selfId}/lastStamp`), {
           id: stampId,
@@ -283,9 +309,17 @@ export function useFirebaseMultiplayer() {
       return;
     }
 
+    if (event === "toggle_ready") {
+      const { roomId, ready } = data;
+      if (roomId && selfId) {
+        set(ref(db, `rooms/${roomId}/players/${selfId}/ready`), ready);
+      }
+      return;
+    }
+
     // Following actions are generally executed by Host or globally
     if (event === "swap_seats") {
-      const { roomId, seatA_player_id, seatB_player_id } = payload;
+      const { roomId, seatA_player_id, seatB_player_id } = data;
       if (roomId && connectionRef.current.isHost) {
         const pRef = ref(db, `rooms/${roomId}/players`);
         get(pRef).then(snap => {
@@ -304,7 +338,7 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "kick_player") {
-      const { roomId, targetId } = payload;
+      const { roomId, targetId } = data;
       if (roomId && connectionRef.current.isHost) {
         remove(ref(db, `rooms/${roomId}/players/${targetId}`));
       }
@@ -312,7 +346,7 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "rematch_vote") {
-      const { roomId } = payload;
+      const { roomId } = data;
       if (roomId) {
         set(ref(db, `rooms/${roomId}/rematchVotes/${selfId}`), true);
       }
@@ -320,7 +354,7 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "clear_rematch_votes") {
-      const { roomId } = payload;
+      const { roomId } = data;
       if (roomId && connectionRef.current.isHost) {
         remove(ref(db, `rooms/${roomId}/rematchVotes`));
       }
@@ -328,7 +362,7 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "pair_change") {
-      const { roomId } = payload;
+      const { roomId } = data;
       if (roomId && connectionRef.current.isHost) {
         const pRef = ref(db, `rooms/${roomId}/players`);
         get(pRef).then(snap => {
@@ -351,12 +385,12 @@ export function useFirebaseMultiplayer() {
       return;
     }
 
-  }, [trigger]);
+  }, [db, selfId, trigger, registerActionsListener]);
 
   return { 
     connected, 
-    socket: { id: connectionRef.current.selfId }, // Mock socket for compatibility
-    selfId: connectionRef.current.selfId,
+    socket: { id: selfId }, // Mock socket for compatibility
+    selfId,
     roomId: connectionRef.current.roomId,
     isHost: connectionRef.current.isHost,
     connect, 

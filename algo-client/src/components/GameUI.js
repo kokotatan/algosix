@@ -423,25 +423,25 @@ export function ActionPanel({
     backdropFilter: "blur(10px)",
     border: "2px solid var(--black)",
     borderRadius: "24px",
-    padding: "20px",
+    padding: "16px 20px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 12,
-    width: "100%",
-    maxWidth: 400,
+    gap: 10,
+    width: "90%",
+    maxWidth: 320,
     boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
   };
 
   const btnStyle = (filled = true, isDisabled = false) => {
     const finalDisabled = disabled || isDisabled;
     return {
-      padding: "14px 28px",
+      padding: "10px 24px",
       borderRadius: "30px",
       border: `2px solid ${finalDisabled ? "var(--gray2)" : "var(--black)"}`,
       background: finalDisabled ? "var(--gray1)" : filled ? "var(--black)" : "var(--white)",
       color: finalDisabled ? "var(--gray3)" : filled ? "var(--white)" : "var(--black)",
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: 800,
       fontFamily: "'Noto Sans JP', sans-serif",
       cursor: finalDisabled ? "not-allowed" : "pointer",
@@ -661,19 +661,19 @@ export function GameBoard({
     reordered.push(players[(currentViewPlayer + i) % count]);
   }
 
-  const makeSeat = (player) => (
+  const makeSeat = (player, pIdx) => (
     <Seat
       key={player.id}
       player={player}
-      isCurrentPlayer={player.id === state.currentPlayer}
+      isCurrentPlayer={pIdx === state.currentPlayer}
       cardSize={cardSize}
-      isOwnSeat={player.id === currentViewPlayer}
+      isOwnSeat={pIdx === currentViewPlayer}
       onCardClick={onCardClick}
       selectedCardIndex={selectedTarget}
       selectedOwnCardIndex={selectedOwnCard}
       phase={state.phase}
       mode={mode}
-      team={mode === "pair" ? getTeamLabel(player.id) : null}
+      team={mode === "pair" ? getTeamLabel(pIdx) : null}
       myTeam={myTeam}
       tossedCard={state.tossedCard}
       cardAnims={cardAnims}
@@ -684,7 +684,7 @@ export function GameBoard({
     return (
       <div style={boardStyle}>
         <div style={{ display: "flex", justifyContent: "center" }}>
-          {makeSeat(reordered[1])}
+          {makeSeat(reordered[1], (currentViewPlayer + 1) % count)}
         </div>
         <DeckStack
           count={state.deck.length}
@@ -695,7 +695,7 @@ export function GameBoard({
           comboCount={comboCount}
         />
         <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
-          {makeSeat(reordered[0])}
+          {makeSeat(reordered[0], currentViewPlayer)}
         </div>
       </div>
     );
@@ -711,8 +711,8 @@ export function GameBoard({
             width: "100%",
           }}
         >
-          {makeSeat(reordered[1])}
-          {makeSeat(reordered[2])}
+          {makeSeat(reordered[1], (currentViewPlayer + 1) % count)}
+          {makeSeat(reordered[2], (currentViewPlayer + 2) % count)}
         </div>
         <DeckStack
           count={state.deck.length}
@@ -723,7 +723,7 @@ export function GameBoard({
           comboCount={comboCount}
         />
         <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
-          {makeSeat(reordered[0])}
+          {makeSeat(reordered[0], currentViewPlayer)}
         </div>
       </div>
     );
@@ -733,7 +733,7 @@ export function GameBoard({
   return (
     <div style={boardStyle}>
       <div style={{ display: "flex", justifyContent: "center" }}>
-        {makeSeat(reordered[2])}
+        {makeSeat(reordered[2], (currentViewPlayer + 2) % count)}
       </div>
       <div
         style={{
@@ -743,7 +743,7 @@ export function GameBoard({
           alignItems: "center",
         }}
       >
-        {makeSeat(reordered[1])}
+        {makeSeat(reordered[1], (currentViewPlayer + 1) % count)}
         <DeckStack
           count={state.deck.length}
           drawnCard={state.drawnCard}
@@ -752,10 +752,10 @@ export function GameBoard({
           showCombo={showCombo}
           comboCount={comboCount}
         />
-        {makeSeat(reordered[3])}
+        {makeSeat(reordered[3], (currentViewPlayer + 3) % count)}
       </div>
       <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
-        {makeSeat(reordered[0])}
+        {makeSeat(reordered[0], currentViewPlayer)}
       </div>
     </div>
   );
