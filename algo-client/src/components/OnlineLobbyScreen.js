@@ -1,9 +1,13 @@
 import React, { useState } from "react";
 import { GeometricBG, ScreenWrapper, OutlinedButton, InputField } from "./UXComponents";
 
-export function OnlineJoinScreen({ onJoin, onBack }) {
+export function OnlineJoinScreen({ onJoin, onBack, defaultRoomId }) {
   const [name, setName] = useState("Player");
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(defaultRoomId || "");
+
+  React.useEffect(() => {
+    if (defaultRoomId) setRoomId(defaultRoomId);
+  }, [defaultRoomId]);
 
   const handleJoin = () => {
     if (name.trim() && roomId.trim().length === 6) {

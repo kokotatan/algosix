@@ -22,6 +22,32 @@ const CARD_SIZES = {
   sm: { w: 32, h: 46, font: 16 },
 };
 
+import { STAMPS } from "../lib/stamps";
+
+function StampFloat({ stampData }) {
+  const [activeStamp, setActiveStamp] = React.useState(null);
+
+  React.useEffect(() => {
+    if (stampData && stampData.ts) {
+      const msSince = Date.now() - stampData.ts;
+      if (msSince < 2500) {
+        const stampDef = STAMPS.find(s => s.id === stampData.id);
+        setActiveStamp({ key: stampData.ts, label: stampDef ? stampDef.label : "" });
+        const timer = setTimeout(() => setActiveStamp(null), 2500 - msSince);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [stampData]);
+
+  if (!activeStamp) return null;
+
+  return (
+    <div key={activeStamp.key} className="stamp-float" style={{ top: -38, zIndex: 10 }}>
+      {activeStamp.label}
+    </div>
+  );
+}
+
 /* ─── Card Component ─── */
 export function Card({
   card,
@@ -194,7 +220,8 @@ export function Seat({
   const isPartnerSeat = mode === "pair" && team === myTeam && !isOwnSeat;
 
   return (
-    <div style={seatStyle}>
+    <div style={{ ...seatStyle, position: "relative" }}>
+      <StampFloat stampData={player.lastStamp} />
       <div style={nameStyle}>
         {player.name}
         {mode === "pair" && team && (

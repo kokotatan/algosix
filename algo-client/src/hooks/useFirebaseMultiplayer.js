@@ -88,11 +88,13 @@ export function useFirebaseMultiplayer() {
         return set(myPlayerRef, {
           id: selfId,
           name: payload.name,
-          isHost: true
+          isHost: true,
+          connected: true,
         });
       }).then(() => {
         // Delete room on disconnect if I am host
         onDisconnect(roomRef).remove();
+        onDisconnect(myPlayerRef).update({ connected: false });
         
         trigger("room_created", { roomId });
         
@@ -106,6 +108,14 @@ export function useFirebaseMultiplayer() {
           }
         });
         unsubscribeFuncs.current.push(unsub);
+        
+        // Listen to rematch votes
+        const rematchRef = ref(db, `rooms/${roomId}/rematchVotes`);
+        const unsubRematch = onValue(rematchRef, (snap) => {
+          const votes = snap.exists() ? Object.keys(snap.val()).length : 0;
+          trigger("rematch_update", { count: votes });
+        });
+        unsubscribeFuncs.current.push(unsubRematch);
         
         // Listen for peer actions (Host only)
         const actionsRef = ref(db, `rooms/${roomId}/actions`);
@@ -138,10 +148,11 @@ export function useFirebaseMultiplayer() {
         set(myPlayerRef, {
           id: selfId,
           name: payload.name,
-          isHost: false
+          isHost: false,
+          connected: true
         }).then(() => {
-          // Remove self if disconnected
-          onDisconnect(myPlayerRef).remove();
+          // Update connection state on disconnect
+          onDisconnect(myPlayerRef).update({ connected: false });
           
           // Listen to player updates
           const playersRef = ref(db, `rooms/${roomId}/players`);
@@ -155,6 +166,14 @@ export function useFirebaseMultiplayer() {
              }
           });
           unsubscribeFuncs.current.push(unsubPlayers);
+
+          // Listen to rematch votes
+          const rematchRef = ref(db, `rooms/${roomId}/rematchVotes`);
+          const unsubRematch = onValue(rematchRef, (snap) => {
+            const votes = snap.exists() ? Object.keys(snap.val()).length : 0;
+            trigger("rematch_update", { count: votes });
+          });
+          unsubscribeFuncs.current.push(unsubRematch);
           
           // Listen to state syncs tailored for me
           const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
@@ -190,6 +209,87 @@ export function useFirebaseMultiplayer() {
           });
        }
        return;
+    }
+
+    // --- NEW ONLINE UX ACTIONS ---
+
+    if (event === "send_stamp") {
+      const { roomId, stampId } = payload;
+      if (roomId && selfId) {
+        set(ref(db, `rooms/${roomId}/players/${selfId}/lastStamp`), {
+          id: stampId,
+          ts: Date.now()
+        });
+      }
+      return;
+    }
+
+    // Following actions are generally executed by Host or globally
+    if (event === "swap_seats") {
+      const { roomId, seatA_player_id, seatB_player_id } = payload;
+      if (roomId && connectionRef.current.isHost) {
+        const pRef = ref(db, `rooms/${roomId}/players`);
+        get(pRef).then(snap => {
+          if (!snap.exists()) return;
+          const pl = snap.val();
+          if (pl[seatA_player_id] && pl[seatB_player_id]) {
+            // Swap their indices
+            const tempIdx = pl[seatA_player_id].seatIndex;
+            pl[seatA_player_id].seatIndex = pl[seatB_player_id].seatIndex;
+            pl[seatB_player_id].seatIndex = tempIdx;
+            set(pRef, pl);
+          }
+        });
+      }
+      return;
+    }
+
+    if (event === "kick_player") {
+      const { roomId, targetId } = payload;
+      if (roomId && connectionRef.current.isHost) {
+        remove(ref(db, `rooms/${roomId}/players/${targetId}`));
+      }
+      return;
+    }
+
+    if (event === "rematch_vote") {
+      const { roomId } = payload;
+      if (roomId) {
+        set(ref(db, `rooms/${roomId}/rematchVotes/${selfId}`), true);
+      }
+      return;
+    }
+
+    if (event === "clear_rematch_votes") {
+      const { roomId } = payload;
+      if (roomId && connectionRef.current.isHost) {
+        remove(ref(db, `rooms/${roomId}/rematchVotes`));
+      }
+      return;
+    }
+
+    if (event === "pair_change") {
+      const { roomId } = payload;
+      if (roomId && connectionRef.current.isHost) {
+        const pRef = ref(db, `rooms/${roomId}/players`);
+        get(pRef).then(snap => {
+          if (!snap.exists()) return;
+          const pl = snap.val();
+          const players = Object.values(pl);
+          // Shuffle indices
+          const indices = players.map((_, i) => i);
+          for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+          }
+          players.forEach((p, i) => {
+            p.seatIndex = indices[i];
+            pl[p.id] = p;
+          });
+          set(pRef, pl);
+        });
+      }
+      return;
     }
 
   }, [trigger]);

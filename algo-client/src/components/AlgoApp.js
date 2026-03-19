@@ -44,6 +44,51 @@ const C = {
 };
 
 import { GeometricBG, ScreenWrapper, OutlinedButton } from "./UXComponents";
+import { STAMPS } from "../lib/stamps";
+
+function ThinkingDots() {
+  return (
+    <span style={{ display:"flex", gap:3, alignItems:"center" }}>
+      {[0,1,2].map(i => (
+        <span key={i} style={{
+          display:"inline-block", width:4, height:4, borderRadius:"50%",
+          background:"var(--gray3)",
+          animation:`dotPulse 1.1s ease-in-out ${i*.18}s infinite`,
+        }}/>
+      ))}
+    </span>
+  );
+}
+
+function ThinkingIndicator({ name, phase }) {
+  const msg = {
+    draw:     `${name} がカードを引いています`,
+    attack:   `${name} が考えています`,
+    continue: `${name} が考えています`,
+  }[phase] ?? `${name} のターン`;
+
+  return (
+    <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <ThinkingDots/>
+      <span style={{ fontSize:12, fontWeight:600, color:"var(--gray4)", whiteSpace: "nowrap" }}>{msg}</span>
+    </span>
+  );
+}
+
+function ConnStatus({ game }) {
+  if (!game) return null;
+  const allOk = game.players.every(p => p.connected !== false);
+  const anyDc = game.players.some(p => p.connected === false);
+  const color  = anyDc ? "#e03030" : allOk ? "#28a028" : "#e8b84b";
+  const label  = anyDc ? "切断者あり" : allOk ? "全員接続中" : "接続不安定";
+  return (
+    <span title={label} style={{
+      width:8, height:8, borderRadius:"50%", background:color,
+      display:"inline-block", flexShrink:0,
+      boxShadow:`0 0 0 2px ${color}33`, transition:"background .4s",
+    }}/>
+  );
+}
 
 /* ─── Menu Screen ─── */
 function MenuScreen({ onNavigate }) {
@@ -820,6 +865,14 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
   const [showRules, setShowRules] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [stampCooldown, setStampCooldown] = useState(false);
+
+  const sendStamp = (stampId) => {
+    if (stampCooldown || !onlineContext) return;
+    onlineContext.emit("send_stamp", { roomId: onlineContext.roomId, stampId });
+    setStampCooldown(true);
+    setTimeout(() => setStampCooldown(false), 3000);
+  };
 
   // Animation States
   const [cardAnims, setCardAnims] = useState({});
@@ -1291,6 +1344,8 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           justifyContent: "space-between",
           alignItems: "center",
           borderBottom: `2px solid ${C.black}`,
+          gap: 8,
+          overflowX: "auto"
         }}
       >
         <span
@@ -1299,25 +1354,29 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             fontWeight: 900,
             fontFamily: "'Inter', sans-serif",
             color: C.black,
+            flexShrink: 0
           }}
         >
           algosi<span style={{ fontStyle: "italic" }}>X</span>
         </span>
-        <span
-          style={{
-            fontSize: 12,
-            color: C.gray4,
-            fontFamily: "'Noto Sans JP', sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          ターン {state.turnCount + 1}
-        </span>
-        <div style={{ display: "flex", gap: 6 }}>
+        
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minWidth: 100 }}>
+          {state.currentPlayer === currentViewPlayer ? (
+             <span style={{ fontSize: 13, fontWeight: 700, color: C.black }}>あなたのターン</span>
+          ) : (
+             <ThinkingIndicator name={state.players[currentPlayer].name} phase={state.phase}/>
+          )}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+             <span style={{ fontSize: 11, fontWeight: 700, color: C.gray4, whiteSpace: "nowrap" }}>山札 {state.deck.length}</span>
+             {onlineContext?.roomId && <ConnStatus game={state} />}
+          </div>
           <button
             onClick={() => setShowRules(true)}
             style={{
-              padding: "4px 10px",
+              padding: "4px 8px",
               border: `1.5px solid ${C.gray2}`,
               background: C.white,
               color: C.gray4,
@@ -1333,7 +1392,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           <button
             onClick={() => setShowHomeConfirm(true)}
             style={{
-              padding: "4px 10px",
+              padding: "4px 8px",
               border: `1.5px solid ${C.gray2}`,
               background: C.white,
               color: C.gray4,
@@ -1409,14 +1468,63 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           disabled={isThinking}
         />
       </div>
+
+      {/* Lobby Stamp Bar */}
+      {onlineContext && onlineContext.roomId && (
+        <div className="stamp-bar" style={{ background: "var(--white)", width: "100%", paddingBottom: 16 }}>
+          {STAMPS.map(s => (
+            <button key={s.id} disabled={stampCooldown} onClick={() => sendStamp(s.id)} className={`stamp-btn${stampCooldown ? " cooling" : ""}`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Disconnect Overlay */}
+      {onlineContext && state.players.some(p => p.connected === false) && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 150,
+          background: "rgba(255,255,255,0.92)",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 20, padding: 32, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 900 }}>プレイヤーの一人が切断されました</div>
+          <div style={{ fontSize: 13, color: "var(--gray4)" }}>
+            再接続を待機しています...
+          </div>
+          <button style={{ padding: "10px 24px", border: `2px solid ${C.black}`, background: C.white, color: C.black, fontSize: 14, fontWeight: 700, cursor: "pointer" }} onClick={onHome}>
+            ホームに戻る
+          </button>
+        </div>
+      )}
+
     </ScreenWrapper>
   );
 }
 
 /* ─── Result Screen ─── */
-function ResultScreen({ state, onBackToMenu }) {
+function ResultScreen({ state, onBackToMenu, onlineContext }) {
   const [revealedAll, setRevealedAll] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [votedCount, setVotedCount] = useState(0);
+  const [hasVoted, setHasVoted] = useState(false);
+
+  useEffect(() => {
+    if (!onlineContext) return;
+    const handleRematch = (data) => setVotedCount(data.count);
+    onlineContext.on("rematch_update", handleRematch);
+    return () => onlineContext.off("rematch_update", handleRematch);
+  }, [onlineContext]);
+
+  useEffect(() => {
+    if (onlineContext && onlineContext.onlinePlayers?.length > 0 && votedCount >= onlineContext.onlinePlayers.length) {
+      setTimeout(() => {
+        if (onlineContext.isHost) onlineContext.emit("clear_rematch_votes", { roomId: onlineContext.roomId });
+        onBackToMenu("online_room");
+      }, 1000);
+    }
+  }, [votedCount, onlineContext, onBackToMenu]);
 
   useEffect(() => {
     // After 0.6s start flipping cards sequentially
@@ -1525,11 +1633,39 @@ function ResultScreen({ state, onBackToMenu }) {
           </div>
         )}
 
-        <div style={{ animation: "fadeIn 0.5s ease 2.5s both", marginTop: 12 }}>
+        <div style={{ animation: "fadeIn 0.5s ease 2.5s both", marginTop: 12, display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 320 }}>
+          {onlineContext && onlineContext.roomId && (
+            <OutlinedButton
+              onClick={() => {
+                if (!hasVoted) {
+                  setHasVoted(true);
+                  onlineContext.emit("rematch_vote", { roomId: onlineContext.roomId });
+                }
+              }}
+              selected={hasVoted}
+              disabled={hasVoted}
+              style={{ padding: "14px 20px", fontSize: 15, background: hasVoted ? C.black : C.white, color: hasVoted ? C.white : C.black }}
+            >
+              もう一度！ ({votedCount}/{onlineContext.onlinePlayers.length})
+            </OutlinedButton>
+          )}
+
+          {onlineContext && onlineContext.isHost && state.mode === "pair" && (
+            <OutlinedButton
+              onClick={() => {
+                onlineContext.emit("pair_change", { roomId: onlineContext.roomId });
+                alert("ペアをシャッフルしました");
+              }}
+              style={{ padding: "14px 20px", fontSize: 15, borderStyle: "dashed" }}
+            >
+              ペア変更（ランダム）
+            </OutlinedButton>
+          )}
+
           <OutlinedButton
-            onClick={onBackToMenu}
-            selected={true}
-            style={{ padding: "14px 40px", fontSize: 15 }}
+            onClick={() => onBackToMenu("menu")}
+            selected={!onlineContext?.roomId}
+            style={{ padding: "14px 20px", fontSize: 15 }}
           >
             メニューに戻る
           </OutlinedButton>
@@ -1547,6 +1683,7 @@ export default function AlgoApp() {
   const [gameState, setGameState] = useState(null);
   const [winner, setWinner] = useState(null);
   const [cpuSettings, setCpuSettings] = useState(null);
+  const [pendingCode, setPendingCode] = useState("");
 
   // Online Multiplayer State (Firebase Adaptive Hook)
   const { connected, socket, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
@@ -1556,6 +1693,15 @@ export default function AlgoApp() {
   const [onlineConfig, setOnlineConfig] = useState(null); // { playerCount, mode }
 
   // Automatically handle socket connection for room creation/joining
+  useEffect(() => {
+    const code = sessionStorage.getItem("pendingRoomCode");
+    if (code) {
+      sessionStorage.removeItem("pendingRoomCode");
+      setPendingCode(code);
+      setScreen("online_join");
+    }
+  }, []);
+
   useEffect(() => {
     on("room_created", (data) => {
       setOnlineRoomId(data.roomId);
@@ -1671,8 +1817,11 @@ export default function AlgoApp() {
     setScreen("result");
   }, []);
 
-  const handleBackToMenu = useCallback(() => {
-    setScreen("menu");
+  const handleBackToMenu = useCallback((targetScreen = "menu") => {
+    // Determine screen carefully. Usually "menu", but "online_room" uses Lobby UI logic
+    if (typeof targetScreen !== "string") targetScreen = "menu"; // ensure from event
+    
+    setScreen(targetScreen);
     setGameState(null);
     setWinner(null);
     setPlayerNames([]);
@@ -1700,7 +1849,7 @@ export default function AlgoApp() {
     case "online_setup":
       return <OnlineSetupScreen onCreate={handleCreateOnlineRoom} onBack={handleBackToMenu} />;
     case "online_join":
-      return <OnlineJoinScreen onJoin={handleJoinOnlineRoom} onBack={handleBackToMenu} />;
+      return <OnlineJoinScreen onJoin={handleJoinOnlineRoom} onBack={handleBackToMenu} defaultRoomId={pendingCode} />;
     case "online_room":
       return (
         <OnlineRoomScreen 
@@ -1709,7 +1858,9 @@ export default function AlgoApp() {
           players={onlinePlayers} 
           maxPlayers={onlineConfig?.playerCount || 4}
           onStart={handleOnlineHostStart}
-          onLeave={handleLeaveOnlineRoom} 
+          onLeave={handleLeaveOnlineRoom}
+          emit={emit}
+          myId={socket?.id}
         />
       );
     case "game":
@@ -1725,7 +1876,7 @@ export default function AlgoApp() {
         />
       );
     case "result":
-      return <ResultScreen state={gameState} onBackToMenu={handleBackToMenu} />;
+      return <ResultScreen state={gameState} onBackToMenu={handleBackToMenu} onlineContext={{ isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers }} />;
     default:
       return <MenuScreen onNavigate={setScreen} />;
   }
