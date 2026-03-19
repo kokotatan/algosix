@@ -1377,8 +1377,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           >
             ALGOSIX
           </span>
-          <div 
-          style={{ 
+          <div style={{ 
             background: "var(--gray1)", 
             padding: "4px 10px", 
             borderRadius: "20px", 
@@ -1389,7 +1388,7 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
             alignItems: "center",
             gap: 4
           }}>
-            DECK {state.deck.length}
+            <span style={{ fontSize: 12 }}>🎴</span> {state.deck.length}
           </div>
         </div>
         
@@ -1417,38 +1416,34 @@ function GameScreen({ gameState, onGameStateChange, onGameEnd, onHome, playerNam
           <button
             onClick={() => setShowRules(true)}
             style={{
-              height: 32,
-              padding: "0 12px",
-              borderRadius: "20px",
+              width: 32, height: 32,
+              borderRadius: "50%",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 800,
-              color: "var(--gray4)",
+              fontSize: 16,
               transition: "all 0.2s"
             }}
+            title="ルール"
           >
-            RULE
+            📋
           </button>
           <button
             onClick={() => setShowHomeConfirm(true)}
             style={{
-              height: 32,
-              padding: "0 12px",
-              borderRadius: "20px",
+              width: 32, height: 32,
+              borderRadius: "50%",
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 800,
-              color: "var(--gray4)",
+              fontSize: 16,
               transition: "all 0.2s"
             }}
+            title="ホーム"
           >
-            HOME
+            🏠
           </button>
         </div>
       </div>
