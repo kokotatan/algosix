@@ -1108,25 +1108,6 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
             position: "relative",
           }}
         >
-        {/* Lobby Stamp Bar - Relocated for better mobile access */}
-        {onlineContext && onlineContext.roomId && (
-          <div className="stamp-bar" style={{ 
-            background: "rgba(255,255,255,0.7)", 
-            backdropFilter: "blur(5px)",
-            width: "100%", 
-            maxWidth: 340,
-            marginBottom: 8,
-            padding: "8px 12px",
-            border: "1px solid var(--gray2)",
-            borderBottom: "none"
-          }}>
-            {STAMPS.map(s => (
-              <button key={s.id} disabled={stampCooldown} onClick={() => sendStamp(s.id)} className={`stamp-btn${stampCooldown ? " cooling" : ""}`}>
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
         {isThinking && (
           <div style={{
             position: "absolute",
