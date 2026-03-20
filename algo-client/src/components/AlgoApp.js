@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   GameBoard,
   ActionPanel,
@@ -33,10 +33,6 @@ export default function AlgoApp() {
   // Online Multiplayer State (Firebase Adaptive Hook)
   const { connected, socket, selfId, connect, disconnect, emit, on, off, remoteGameState } = useFirebaseMultiplayer();
   const [onlineRoomId, setOnlineRoomId] = useState(null);
-
-  // Ref to signal GameScreen that the latest state update came from Firebase (not local computation).
-  // GameScreen uses this to skip re-syncing state that was just received from Firebase (prevents infinite loop).
-  const stateFromFirebaseRef = useRef(false);
 
   // Sync room ID with URL
   useEffect(() => {
@@ -228,11 +224,9 @@ export default function AlgoApp() {
     };
   }, [on, off, screen, disconnect, handleGameEnd]);
 
-  // Handle remote game state from Firebase (replaces event-based sync_state for guaranteed delivery)
+  // Handle remote game state from Firebase
   useEffect(() => {
     if (!remoteGameState) return;
-    console.log("[DIAG-H] Peer received remoteGameState, currentPlayer=", remoteGameState.currentPlayer, "phase=", remoteGameState.phase);
-    stateFromFirebaseRef.current = true;
     setGameState(remoteGameState);
     if (remoteGameState.phase !== "gameover") {
       setScreen(s => s === "game" ? s : "game");
@@ -246,8 +240,8 @@ export default function AlgoApp() {
 
   // Memoize onlineContext so GameScreen's useEffects don't re-run on every render
   const onlineContext = useMemo(() => ({
-    isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef
-  }), [isHost, onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef]);
+    isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers
+  }), [isHost, onlineRoomId, socket, emit, on, off, onlinePlayers]);
 
   return (
     <>
@@ -281,7 +275,7 @@ export default function AlgoApp() {
                 isHost={isHost} 
                 roomId={onlineRoomId} 
                 players={onlinePlayers} 
-                maxPlayers={onlineConfig?.playerCount || 4}
+                maxPlayers={onlineConfig?.playerCount || 6}
                 mode={onlineConfig?.mode || "individual"}
                 onStart={handleOnlineHostStart}
                 onLeave={handleLeaveOnlineRoom}

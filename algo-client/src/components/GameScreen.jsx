@@ -346,7 +346,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       </div>
     );
   }
-  const { isHost, roomId, socket, emit, on, off, onlinePlayers = [], stateFromFirebaseRef } = onlineContext || {};
+  const { roomId, emit, on, off, onlinePlayers = [] } = onlineContext || {};
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedOwnCard, setSelectedOwnCard] = useState(null);
   const [guessNumber, setGuessNumber] = useState(null);
@@ -390,14 +390,6 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const isMyTurn = !onlineContext?.roomId
     || currentPlayer === myIndex
     || Boolean(state.players[currentPlayer]?.isCpu);
-
-  // DIAGNOSTIC: log key values on each render (throttled via ref to avoid spam)
-  const diagLoggedRef = useRef(null);
-  const diagKey = `${currentPlayer}-${state.phase}-${myIndex}-${isMyTurn}`;
-  if (diagKey !== diagLoggedRef.current) {
-    diagLoggedRef.current = diagKey;
-    console.log("[DIAG-I] selfId=", selfId, "myIndex=", myIndex, "(raw="+myIndexRaw+")", "currentPlayer=", currentPlayer, "isMyTurn=", isMyTurn, "phase=", state.phase, "isHost=", isHost, "roomId=", roomId);
-  }
 
   const cardSize = getCardSize(state.players.length);
 
@@ -487,69 +479,15 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     }
   }, [state.lastAction, onlineContext?.roomId]);
 
-  // --- ONLINE STATE SYNC LOGIC ---
-
-  // Host: Broadcast masked state to all players (including self) whenever state changes.
-  // stateFromFirebaseRef guards against infinite loop:
-  //   local action → setGameState → effect fires → write to Firebase
-  //   → Firebase triggers sync_state → AlgoApp sets stateFromFirebaseRef=true → setGameState
-  //   → effect fires → sees stateFromFirebaseRef=true → SKIP (no re-write)
-  useEffect(() => {
-    if (!onlineContext || !isHost || !state) return;
-
-    // If this state update came FROM Firebase, skip writing back to avoid infinite loop.
-    if (stateFromFirebaseRef?.current) {
-      stateFromFirebaseRef.current = false;
-      return;
-    }
-
-    // Write masked state for each peer
-    console.log("[DIAG-F] Host sync effect: onlinePlayers=", onlinePlayers.map(p=>p.id), "statePlayers=", state.players.map(p=>p.id));
-    onlinePlayers.forEach(p => {
-      if (p.isHost) return; // Already written above
-
-      const targetId = p.id;
-      if (!targetId) return;
-
-      const pIndex = state.players.findIndex(sp => String(sp.id) === String(targetId));
-      console.log("[DIAG-F] targetId=", targetId, "pIndex=", pIndex);
-      if (pIndex === -1) return;
-
-      const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
-
-      maskedState.players.forEach((sp, i) => {
-        if (i !== pIndex) {
-          sp.hand.forEach(c => {
-            if (!c.revealed) {
-              c.number = null; // hide number to prevent cheat
-            }
-          });
-        }
-      });
-      // Mask drawn card if it's not the peer's turn
-      if (state.currentPlayer !== pIndex && maskedState.drawnCard) {
-        maskedState.drawnCard.number = null;
-      }
-      emit("host_sync_state", { roomId, targetId: p.id, state: maskedState });
-    });
-  }, [state, isHost, onlineContext, onlinePlayers, emit, roomId, selfId, stateFromFirebaseRef]);
-
   // --- ACTION DISPATCHER ---
   const dispatchAction = useCallback((actionType, payload) => {
-    console.log("[DIAG-A] dispatchAction:", actionType, "| isHost=", isHost, "| roomId=", roomId, "| onlineCtx=", !!onlineContext?.roomId);
-    if (onlineContext && onlineContext.roomId && !isHost) {
-      // Peer sends action to host instead of executing it locally
-      emit("peer_action", { roomId, action: actionType, payload });
-      return;
-    }
-
-    // Local / Host processing
+    let computedState = null;
     onGameStateChange(prevState => {
       if (!prevState) return prevState;
       let newState = prevState;
       switch (actionType) {
-        case "draw": 
-          newState = drawCard(prevState); 
+        case "draw":
+          newState = drawCard(prevState);
           break;
         case "attack":
           newState = attack(prevState, payload.targetPlayer, payload.targetCard, payload.guessNumber);
@@ -572,31 +510,17 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
         default:
           break;
       }
-      
-      // In online mode, gameover is handled via sync_state arriving from Firebase
-      // (AlgoApp's sync_state handler calls handleGameEnd). For offline, handle locally.
+      computedState = newState;
       if (newState.phase === "gameover" && !onlineContext?.roomId) {
-         setTimeout(() => onGameEnd(newState), 800);
+        setTimeout(() => onGameEnd(newState), 800);
       }
       return newState;
     });
-  }, [onlineContext, isHost, emit, roomId, onGameStateChange, onGameEnd]);
-
-  // Keep a stable ref to the latest dispatchAction so handlePeerAction doesn't re-register on every render
-  const dispatchActionRef = useRef(dispatchAction);
-  useEffect(() => { dispatchActionRef.current = dispatchAction; });
-
-  // Host: Listen for peer actions and dispatch them (registered once, stable handler)
-  useEffect(() => {
-    if (!onlineContext?.roomId || !isHost) return;
-    console.log("[DIAG-E] Host registering peer_action listener");
-    const handlePeerAction = (data) => {
-      console.log("[DIAG-E] Host handlePeerAction called:", data.action);
-      dispatchActionRef.current(data.action, data.payload);
-    };
-    on("peer_action", handlePeerAction);
-    return () => off("peer_action", handlePeerAction);
-  }, [onlineContext?.roomId, isHost, on, off]);
+    // All online players write the new state to Firebase (shared authority)
+    if (onlineContext?.roomId && computedState) {
+      emit("update_game_state", { roomId, state: computedState });
+    }
+  }, [onlineContext, emit, roomId, onGameStateChange, onGameEnd]);
 
   // Watch for wrong guesses to inform HARD CPU
   useEffect(() => {

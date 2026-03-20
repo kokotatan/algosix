@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { db } from "../lib/firebase";
 import { ref, set, get, onValue, remove, onDisconnect } from "firebase/database";
 
@@ -12,7 +12,6 @@ export function useFirebaseMultiplayer() {
   const listenersRef = useRef({}); // Stores 'on' callbacks
   const connectionRef = useRef({ roomId: null, selfId: null, isHost: false });
   const unsubscribeFuncs = useRef([]); // Stores cleanup functions for RTDB listeners
-  const actionsListenerRef = useRef(null); // peer_action リスナーの登録状態を管理
 
   const [selfId] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -44,7 +43,6 @@ export function useFirebaseMultiplayer() {
     // Cleanup all RTDB subscriptions
     unsubscribeFuncs.current.forEach(unsub => unsub());
     unsubscribeFuncs.current = [];
-    actionsListenerRef.current = null; // リスナー状態をリセット
 
     // Also clear the UI-level listeners to prevent stale triggers
     listenersRef.current = {};
@@ -75,30 +73,6 @@ export function useFirebaseMultiplayer() {
       listenersRef.current[event] = [];
     }
   }, []);
-
-  // ホスト用 peer_action リスナーを登録する（二重登録防止付き）
-  const registerActionsListener = useCallback((roomId) => {
-    if (actionsListenerRef.current) return; // 既に登録済み
-    console.log("[DIAG-C] registerActionsListener: setting up onValue for", roomId);
-    let lastProcessedTs = 0;
-    const pendingRef = ref(db, `rooms/${roomId}/pendingAction`);
-    const unsubActions = onValue(pendingRef, (snapshot) => {
-      console.log("[DIAG-C] pendingAction onValue fired, exists=", snapshot.exists());
-      if (!snapshot.exists()) return;
-      const actionData = snapshot.val();
-      console.log("[DIAG-D] pending action data:", actionData, "lastProcessedTs=", lastProcessedTs);
-      if (!actionData.ts || actionData.ts <= lastProcessedTs) {
-        console.log("[DIAG-D] SKIPPED (duplicate ts)");
-        return;
-      }
-      lastProcessedTs = actionData.ts;
-      console.log("[DIAG-D] triggering peer_action:", actionData.action);
-      trigger("peer_action", actionData);
-      set(pendingRef, null);
-    });
-    actionsListenerRef.current = unsubActions;
-    unsubscribeFuncs.current.push(unsubActions);
-  }, [trigger]);
 
   // Map "socket.emit" concepts into Firebase Realtime DB writes
   const emit = useCallback((event, data) => {
@@ -162,9 +136,13 @@ export function useFirebaseMultiplayer() {
           trigger("rematch_update", { count: votes });
         });
         unsubscribeFuncs.current.push(unsubRematch);
-        
-        // Listen for peer actions (Host only)
-        registerActionsListener(roomId);
+
+        // Listen to shared game state (all players write here on their turn)
+        const gameStateRef = ref(db, `rooms/${roomId}/gameState`);
+        const unsubGameState = onValue(gameStateRef, (snap) => {
+          if (snap.exists()) setRemoteGameState(snap.val());
+        });
+        unsubscribeFuncs.current.push(unsubGameState);
       }).catch((err) => {
         trigger("error", { message: "ルーム作成に失敗しました: " + err.message });
         connectionRef.current.roomId = null;
@@ -247,14 +225,12 @@ export function useFirebaseMultiplayer() {
           });
           unsubscribeFuncs.current.push(unsubRematch);
           
-          // Listen to state syncs tailored for me
-          const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
-           const unsubState = onValue(myStateRef, (ssnap) => {
-              if (ssnap.exists()) {
-                  setRemoteGameState(ssnap.val());
-              }
-           });
-           unsubscribeFuncs.current.push(unsubState);
+          // Listen to shared game state (all players write here on their turn)
+          const gameStateRef = ref(db, `rooms/${roomId}/gameState`);
+          const unsubState = onValue(gameStateRef, (ssnap) => {
+            if (ssnap.exists()) setRemoteGameState(ssnap.val());
+          });
+          unsubscribeFuncs.current.push(unsubState);
 
            // Watch for game start
            const startRef = ref(db, `rooms/${roomId}/meta/started`);
@@ -272,26 +248,10 @@ export function useFirebaseMultiplayer() {
       return;
     }
     
-    if (event === "host_sync_state") {
-      const { roomId, targetId, state } = data;
-      if (roomId && targetId) {
-        set(ref(db, `rooms/${roomId}/states/${targetId}`), state);
-      }
-      return;
-    }
-
-    if (event === "peer_action") {
-      const { roomId, action, payload } = data;
-      console.log("[DIAG-B] peer emit peer_action:", action, "roomId=", roomId, "selfId=", selfId);
-      if (roomId) {
-        set(ref(db, `rooms/${roomId}/pendingAction`), {
-          senderId: selfId,
-          action,
-          payload,
-          ts: Date.now()
-        });
-      } else {
-        console.warn("[DIAG-B] MISSING roomId — peer_action NOT sent!");
+    if (event === "update_game_state") {
+      const { roomId, state } = data;
+      if (roomId && state) {
+        set(ref(db, `rooms/${roomId}/gameState`), state);
       }
       return;
     }
@@ -300,10 +260,6 @@ export function useFirebaseMultiplayer() {
       const { roomId } = data;
       if (roomId) {
         set(ref(db, `rooms/${roomId}/meta/started`), true);
-        // ホストの peer_action リスナーが失われていた場合に備えて再確認・再登録
-        if (connectionRef.current.isHost) {
-          registerActionsListener(roomId);
-        }
       }
       return;
     }
@@ -397,7 +353,7 @@ export function useFirebaseMultiplayer() {
       return;
     }
 
-  }, [selfId, trigger, registerActionsListener]);
+  }, [selfId, trigger]);
 
   return {
     connected,
