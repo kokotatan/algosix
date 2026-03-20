@@ -8,6 +8,7 @@ import { ref, set, get, onValue, onChildAdded, push, remove, onDisconnect } from
  */
 export function useFirebaseMultiplayer() {
   const [connected, setConnected] = useState(false);
+  const [remoteGameState, setRemoteGameState] = useState(null);
   const listenersRef = useRef({}); // Stores 'on' callbacks
   const connectionRef = useRef({ roomId: null, selfId: null, isHost: false });
   const unsubscribeFuncs = useRef([]); // Stores cleanup functions for RTDB listeners
@@ -85,7 +86,6 @@ export function useFirebaseMultiplayer() {
     const unsubActions = onChildAdded(actionsRef, (snapshot) => {
       if (snapshot.exists()) {
         const actionData = snapshot.val();
-        console.log("[HOST] peer_action received from Firebase:", JSON.stringify(actionData));
         trigger("peer_action", actionData);
         remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
       }
@@ -159,16 +159,6 @@ export function useFirebaseMultiplayer() {
         
         // Listen for peer actions (Host only)
         registerActionsListener(roomId);
-
-        // Host also listens to own state via Firebase (same as peers).
-        // This ensures host and peers go through the same sync_state code path.
-        const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
-        const unsubHostState = onValue(myStateRef, (ssnap) => {
-          if (ssnap.exists()) {
-            trigger("sync_state", ssnap.val());
-          }
-        });
-        unsubscribeFuncs.current.push(unsubHostState);
       }).catch((err) => {
         trigger("error", { message: "ルーム作成に失敗しました: " + err.message });
         connectionRef.current.roomId = null;
@@ -255,11 +245,7 @@ export function useFirebaseMultiplayer() {
           const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
            const unsubState = onValue(myStateRef, (ssnap) => {
               if (ssnap.exists()) {
-                  const val = ssnap.val();
-                  console.log("[PEER] sync_state received from Firebase. phase:", val?.phase, "| currentPlayer:", val?.currentPlayer, "| players:", val?.players?.map(p => ({ id: p.id, name: p.name, hand: p.hand?.length })));
-                  trigger("sync_state", val);
-              } else {
-                  console.log("[PEER] sync_state path exists but no data yet (selfId:", selfId, ")");
+                  setRemoteGameState(ssnap.val());
               }
            });
            unsubscribeFuncs.current.push(unsubState);
@@ -405,16 +391,17 @@ export function useFirebaseMultiplayer() {
 
   }, [db, selfId, trigger, registerActionsListener]);
 
-  return { 
-    connected, 
+  return {
+    connected,
     socket: { id: selfId }, // Mock socket for compatibility
     selfId,
     roomId: connectionRef.current.roomId,
     isHost: connectionRef.current.isHost,
-    connect, 
-    disconnect, 
-    emit, 
-    on, 
-    off 
+    connect,
+    disconnect,
+    emit,
+    on,
+    off,
+    remoteGameState,
   };
 }

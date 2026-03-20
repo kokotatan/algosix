@@ -31,7 +31,7 @@ export default function AlgoApp() {
   const [pendingCode, setPendingCode] = useState("");
 
   // Online Multiplayer State (Firebase Adaptive Hook)
-  const { connected, socket, selfId, connect, disconnect, emit, on, off } = useFirebaseMultiplayer();
+  const { connected, socket, selfId, connect, disconnect, emit, on, off, remoteGameState } = useFirebaseMultiplayer();
   const [onlineRoomId, setOnlineRoomId] = useState(null);
 
   // Ref to signal GameScreen that the latest state update came from Firebase (not local computation).
@@ -217,20 +217,6 @@ export default function AlgoApp() {
       setScreen(s => s === "game" ? s : "game");
     });
 
-    on("sync_state", (newState) => {
-      // Mark this state as coming from Firebase so GameScreen's host sync effect
-      // skips writing it back to Firebase (prevents infinite loop).
-      console.log("[APP] sync_state handler fired. phase:", newState?.phase, "| currentScreen:", screen, "| isHost:", isHost);
-      stateFromFirebaseRef.current = true;
-      setGameState(newState);
-      if (newState.phase !== "gameover" && screen !== "game") {
-        setScreen("game");
-      }
-      if (newState.phase === "gameover") {
-         setTimeout(() => handleGameEnd(newState), 800);
-      }
-    });
-
     return () => {
       off("room_created");
       off("player_joined");
@@ -239,11 +225,28 @@ export default function AlgoApp() {
       off("room_closed");
       off("player_left");
       off("game_started");
-      off("sync_state");
     };
   }, [on, off, screen, disconnect, handleGameEnd]);
 
+  // Handle remote game state from Firebase (replaces event-based sync_state for guaranteed delivery)
+  useEffect(() => {
+    if (!remoteGameState) return;
+    stateFromFirebaseRef.current = true;
+    setGameState(remoteGameState);
+    if (remoteGameState.phase !== "gameover") {
+      setScreen(s => s === "game" ? s : "game");
+    }
+    if (remoteGameState.phase === "gameover") {
+      setTimeout(() => handleGameEnd(remoteGameState), 800);
+    }
+  }, [remoteGameState, handleGameEnd]);
 
+
+
+  // Memoize onlineContext so GameScreen's useEffects don't re-run on every render
+  const onlineContext = useMemo(() => ({
+    isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef
+  }), [isHost, onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef]);
 
   return (
     <>
@@ -294,7 +297,7 @@ export default function AlgoApp() {
                 onHome={handleBackToMenu}
                 playerNames={playerNames}
                 cpuSettings={cpuSettings}
-                onlineContext={{ isHost, roomId: onlineRoomId, socket, emit, on, off, onlinePlayers, stateFromFirebaseRef }}
+                onlineContext={onlineContext}
                 selfId={selfId}
               />
             );

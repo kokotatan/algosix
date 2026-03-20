@@ -391,7 +391,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     || currentPlayer === myIndex
     || Boolean(state.players[currentPlayer]?.isCpu);
 
-  const cardSize = getCardSize(playerNames.length);
+  const cardSize = getCardSize(state.players.length);
 
   const cpuKnowledgeRefs = useRef({});
 
@@ -495,34 +495,15 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       return;
     }
 
-    // Write host's own state (unmasked — host sees all cards)
-    if (selfId) {
-      console.log("[HOST] writing own state to Firebase. phase:", state.phase, "| currentPlayer:", state.currentPlayer);
-      emit("host_sync_state", { roomId, targetId: selfId, state });
-    }
-
     // Write masked state for each peer
-    console.log("[HOST] onlinePlayers:", onlinePlayers.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
-    console.log("[HOST] state.players:", state.players.map(p => ({ id: p.id, name: p.name })));
     onlinePlayers.forEach(p => {
       if (p.isHost) return; // Already written above
 
       const targetId = p.id;
-      if (!targetId) {
-        console.warn("HOST_SYNC: Player ID is missing in onlinePlayers", p);
-        return;
-      }
+      if (!targetId) return;
 
       const pIndex = state.players.findIndex(sp => String(sp.id) === String(targetId));
-      if (pIndex === -1) {
-        console.warn("HOST_SYNC: Peer not found in state", {
-          targetId,
-          playerIdsInState: state.players.map(x=>x.id),
-          onlinePlayers: onlinePlayers.map(x=>({id:x.id, name:x.name}))
-        });
-        return;
-      }
-      console.log("[HOST] writing masked state for peer:", targetId, "pIndex:", pIndex);
+      if (pIndex === -1) return;
 
       const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
 
@@ -590,15 +571,17 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     });
   }, [onlineContext, isHost, emit, roomId, onGameStateChange, onGameEnd]);
 
-  // Host: Listen for peer actions and dispatch them
+  // Keep a stable ref to the latest dispatchAction so handlePeerAction doesn't re-register on every render
+  const dispatchActionRef = useRef(dispatchAction);
+  useEffect(() => { dispatchActionRef.current = dispatchAction; });
+
+  // Host: Listen for peer actions and dispatch them (registered once, stable handler)
   useEffect(() => {
-    if (!onlineContext || !isHost) return;
-    const handlePeerAction = (data) => {
-      dispatchAction(data.action, data.payload);
-    };
+    if (!onlineContext?.roomId || !isHost) return;
+    const handlePeerAction = (data) => dispatchActionRef.current(data.action, data.payload);
     on("peer_action", handlePeerAction);
     return () => off("peer_action", handlePeerAction);
-  }, [onlineContext, isHost, on, off, dispatchAction]);
+  }, [onlineContext?.roomId, isHost, on, off]);
 
   // Watch for wrong guesses to inform HARD CPU
   useEffect(() => {
