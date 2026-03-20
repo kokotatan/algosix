@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { ref, set, get, onValue, onChildAdded, push, remove, onDisconnect } from "firebase/database";
+import { ref, set, get, onValue, remove, onDisconnect } from "firebase/database";
 
 /**
  * A Firebase Realtime Database Adapter that strictly mimics the previous socket.io-client API.
@@ -21,12 +21,9 @@ export function useFirebaseMultiplayer() {
       id = "user_" + Math.random().toString(36).substr(2, 9);
       sessionStorage.setItem("algo_self_id", id);
     }
+    connectionRef.current.selfId = id;
     return id;
   });
-
-  useEffect(() => {
-    connectionRef.current.selfId = selfId;
-  }, [selfId]);
 
   const connect = useCallback(() => {
     setConnected(true);
@@ -82,18 +79,19 @@ export function useFirebaseMultiplayer() {
   // ホスト用 peer_action リスナーを登録する（二重登録防止付き）
   const registerActionsListener = useCallback((roomId) => {
     if (actionsListenerRef.current) return; // 既に登録済み
-    const actionsRef = ref(db, `rooms/${roomId}/actions`);
-    const unsubActions = onChildAdded(actionsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const actionData = snapshot.val();
-        console.log("[FIREBASE] onChildAdded peer_action:", actionData.action);
-        trigger("peer_action", actionData);
-        remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
-      }
+    let lastProcessedTs = 0;
+    const pendingRef = ref(db, `rooms/${roomId}/pendingAction`);
+    const unsubActions = onValue(pendingRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const actionData = snapshot.val();
+      if (!actionData.ts || actionData.ts <= lastProcessedTs) return;
+      lastProcessedTs = actionData.ts;
+      trigger("peer_action", actionData);
+      set(pendingRef, null);
     });
     actionsListenerRef.current = unsubActions;
     unsubscribeFuncs.current.push(unsubActions);
-  }, [db, trigger]);
+  }, [trigger]);
 
   // Map "socket.emit" concepts into Firebase Realtime DB writes
   const emit = useCallback((event, data) => {
@@ -276,15 +274,13 @@ export function useFirebaseMultiplayer() {
     }
 
     if (event === "peer_action") {
-      // Peer pushes an action to the actions list for Host to process
       const { roomId, action, payload } = data;
-      console.log("[FIREBASE] peer pushing action:", action, "to room:", roomId);
       if (roomId) {
-        push(ref(db, `rooms/${roomId}/actions`), {
+        set(ref(db, `rooms/${roomId}/pendingAction`), {
           senderId: selfId,
           action,
           payload,
-          timestamp: Date.now()
+          ts: Date.now()
         });
       }
       return;
@@ -391,7 +387,7 @@ export function useFirebaseMultiplayer() {
       return;
     }
 
-  }, [db, selfId, trigger, registerActionsListener]);
+  }, [selfId, trigger, registerActionsListener]);
 
   return {
     connected,

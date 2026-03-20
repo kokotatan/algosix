@@ -528,13 +528,11 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const dispatchAction = useCallback((actionType, payload) => {
     if (onlineContext && onlineContext.roomId && !isHost) {
       // Peer sends action to host instead of executing it locally
-      console.log("[PEER] sending peer_action:", actionType, "roomId:", roomId);
       emit("peer_action", { roomId, action: actionType, payload });
       return;
     }
 
     // Local / Host processing
-    console.log("[HOST/LOCAL] processing action:", actionType);
     onGameStateChange(prevState => {
       if (!prevState) return prevState;
       let newState = prevState;
@@ -580,9 +578,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   // Host: Listen for peer actions and dispatch them (registered once, stable handler)
   useEffect(() => {
     if (!onlineContext?.roomId || !isHost) return;
-    console.log("[HOST] registering peer_action listener");
     const handlePeerAction = (data) => {
-      console.log("[HOST] peer_action received:", data.action);
       dispatchActionRef.current(data.action, data.payload);
     };
     on("peer_action", handlePeerAction);
