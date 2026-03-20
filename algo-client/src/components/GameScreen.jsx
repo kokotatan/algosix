@@ -372,9 +372,11 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const state = gameState;
   const currentPlayer = state.currentPlayer;
   
-  const myIndexRaw = (onlineContext && selfId)
-    ? state?.players?.findIndex(p => String(p.id) === String(selfId))
+  const myIndexRaw = (onlineContext?.roomId && selfId)
+    ? state?.players?.findIndex(p => String(p.id).trim().toLowerCase() === String(selfId).trim().toLowerCase())
     : state.currentPlayer;
+  
+  // Robust fallback for myIndex
   const myIndex = (myIndexRaw === -1 || myIndexRaw === undefined) ? 0 : myIndexRaw;
   const currentViewPlayer = myIndex;
 
@@ -388,13 +390,13 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const cpuKnowledgeRefs = useRef({});
 
   useEffect(() => {
-    if (!onlineContext && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
+    if (!onlineContext?.roomId && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
       setShowPassScreen(true);
     }
     setSelectedTarget(null);
     setSelectedOwnCard(null);
     setGuessNumber(null);
-  }, [currentPlayer, state.mode, cpuSettings, state.players, onlineContext]);
+  }, [currentPlayer, state.mode, cpuSettings, state.players, onlineContext?.roomId]);
 
   useEffect(() => {
     setSelectedTarget(null);
@@ -458,10 +460,13 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
     // Write host's own state (unmasked — host sees all cards)
     if (selfId) {
+      console.log("[HOST] writing own state to Firebase. phase:", state.phase, "| currentPlayer:", state.currentPlayer);
       emit("host_sync_state", { roomId, targetId: selfId, state });
     }
 
     // Write masked state for each peer
+    console.log("[HOST] onlinePlayers:", onlinePlayers.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
+    console.log("[HOST] state.players:", state.players.map(p => ({ id: p.id, name: p.name })));
     onlinePlayers.forEach(p => {
       if (p.isHost) return; // Already written above
 
@@ -480,6 +485,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
         });
         return;
       }
+      console.log("[HOST] writing masked state for peer:", targetId, "pIndex:", pIndex);
 
       const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
 
@@ -699,7 +705,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
     if (state.phase === "pass_to_partner") {
       // If online mode, skip swap screen entirely
-      if (onlineContext) return null;
+      if (onlineContext?.roomId) return null;
       // If partner is CPU, don't show pass screen — let useEffect handle auto-toss
       if (!partner?.isCpu) {
         const partnerName = partner.name;
@@ -737,7 +743,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
     if (state.phase === "pass_back") {
       // If online mode, skip swap screen entirely
-      if (onlineContext) return null;
+      if (onlineContext?.roomId) return null;
       // If current player is CPU, skip pass_back screen (useEffect handles it)
       if (!state.players[currentPlayer].isCpu) {
         const currentName = state.players[currentPlayer].name;
@@ -756,6 +762,9 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   }
 
   const handleCardClick = (playerId, cardIdx, isOwnGroup) => {
+    // 自分のターンでない場合は何もしない
+    if (!isMyTurn || state.phase !== "attack") return;
+
     if (isOwnGroup) {
       setSelectedOwnCard(cardIdx);
     } else {
@@ -798,16 +807,18 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   };
 
   return (
-    <ScreenWrapper showGeo={false}>
-      {/* Stamp Flow Overlay */}
-      <div className="stamp-overlay">
-        {onlinePlayers.map(p => p.lastStamp && (
-          <div key={p.lastStamp.ts} className="stamp-item-flow">
-            <span style={{ fontSize: 10, opacity: 0.6, marginRight: 8 }}>{p.name}</span>
-            {STAMPS.find(s => s.id === p.lastStamp.id)?.label || p.lastStamp.id}
-          </div>
-        ))}
-      </div>
+    <ScreenWrapper showGeo={false} scroll={true}>
+      {/* Stamp Flow Overlay - only in online rooms */}
+      {onlineContext?.roomId && (
+        <div className="stamp-overlay">
+          {onlinePlayers.map(p => p.lastStamp && (
+            <div key={p.lastStamp.ts} className="stamp-item-flow">
+              <span style={{ fontSize: 10, opacity: 0.6, marginRight: 8 }}>{p.name}</span>
+              {STAMPS.find(s => s.id === p.lastStamp.id)?.label || p.lastStamp.id}
+            </div>
+          ))}
+        </div>
+      )}
 
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
 
@@ -1044,6 +1055,11 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           onAttack={handleAttack}
           onStay={handleStay}
           onContinue={handleContinue}
+          onCancel={() => {
+            setSelectedTarget(null);
+            setSelectedOwnCard(null);
+            setGuessNumber(null);
+          }}
           onGuessChange={setGuessNumber}
           currentPlayerName={state.players[currentPlayer].name}
           lastAction={state.lastAction}

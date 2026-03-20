@@ -413,6 +413,7 @@ export function ActionPanel({
   onAttack,
   onStay,
   onContinue,
+  onCancel,
   onGuessChange,
   currentPlayerName,
   lastAction,
@@ -427,10 +428,12 @@ export function ActionPanel({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 10,
+    gap: phase === "attack" ? 6 : 10, // Compact during attack
     width: "90%",
-    maxWidth: 320,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+    maxWidth: 340,
+    boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+    zIndex: 110,
+    padding: phase === "attack" ? "12px 16px" : "16px 20px",
   };
 
   const btnStyle = (filled = true, isDisabled = false) => {
@@ -514,6 +517,13 @@ export function ActionPanel({
               >
                 アタック！
               </button>
+              <button
+                style={{ ...btnStyle(false), marginTop: -4 }}
+                onClick={onCancel}
+                disabled={disabled}
+              >
+                キャンセル
+              </button>
             </>
           )}
         </>
@@ -544,6 +554,13 @@ export function ActionPanel({
                 disabled={disabled || guessNumber === null}
               >
                 {guessNumber !== null ? "アタック！" : "数字を選んでください"}
+              </button>
+              <button
+                style={{ ...btnStyle(false), marginTop: -4 }}
+                onClick={onCancel}
+                disabled={disabled}
+              >
+                キャンセル
               </button>
             </>
           )}
@@ -694,7 +711,7 @@ export function GameBoard({
           showCombo={showCombo}
           comboCount={comboCount}
         />
-        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
+        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center", paddingBottom: 10 }}>
           {makeSeat(reordered[0], currentViewPlayer)}
         </div>
       </div>
@@ -722,7 +739,7 @@ export function GameBoard({
           showCombo={showCombo}
           comboCount={comboCount}
         />
-        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
+        <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center", paddingBottom: 10 }}>
           {makeSeat(reordered[0], currentViewPlayer)}
         </div>
       </div>
@@ -754,7 +771,7 @@ export function GameBoard({
         />
         {makeSeat(reordered[3], (currentViewPlayer + 3) % count)}
       </div>
-      <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center" }}>
+      <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center", paddingBottom: 10 }}>
         {makeSeat(reordered[0], currentViewPlayer)}
       </div>
     </div>

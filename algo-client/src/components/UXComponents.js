@@ -118,7 +118,7 @@ export function GeometricBG() {
   );
 }
 
-export function ScreenWrapper({ children, showGeo = true }) {
+export function ScreenWrapper({ children, showGeo = true, scroll = false }) {
   return (
     <div
       style={{
@@ -140,7 +140,8 @@ export function ScreenWrapper({ children, showGeo = true }) {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflowY: scroll ? "auto" : "hidden",
+          overflowX: "hidden",
         }}
       >
         {children}

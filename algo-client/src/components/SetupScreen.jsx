@@ -35,6 +35,8 @@ export default function SetupScreen({ isCpuMode, onStart, onBack }) {
     if (!(count % 2 === 0 && count >= 4)) {
       setMode("individual");
     }
+    // ペア戦が選択済みの状態で人数を変えた場合に備え、
+    // ペア戦が有効になる人数に変えてもモードはユーザーに明示的に選ばせる
   };
 
   const handleNameChange = (index, value) => {

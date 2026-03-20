@@ -107,7 +107,7 @@ export default function AlgoApp() {
   }, [disconnect]);
 
   const handleStartGame = useCallback((names, mode, cpuOpts) => {
-    // Both Local and Online entry point? If online, names comes from onlinePlayers
+    // Both Local and Online entry point.
     setPlayerNames(names);
     if (cpuOpts) {
       setCpuSettings(cpuOpts);
@@ -155,10 +155,16 @@ export default function AlgoApp() {
   const handleBackToMenu = useCallback((targetScreen = "menu") => {
     if (typeof targetScreen !== "string") targetScreen = "menu"; 
     
+    // If we are in an online room/game, we should ideally disconnect
+    // but at minimum clear the online-specific states to prevent leakage
+    setOnlineRoomId(null);
+    setOnlinePlayers([]);
+    
     setScreen(targetScreen);
     setGameState(null);
     setWinner(null);
     setPlayerNames([]);
+    setCpuSettings(null);
   }, []);
 
   useEffect(() => {
@@ -214,6 +220,7 @@ export default function AlgoApp() {
     on("sync_state", (newState) => {
       // Mark this state as coming from Firebase so GameScreen's host sync effect
       // skips writing it back to Firebase (prevents infinite loop).
+      console.log("[APP] sync_state handler fired. phase:", newState?.phase, "| currentScreen:", screen, "| isHost:", isHost);
       stateFromFirebaseRef.current = true;
       setGameState(newState);
       if (newState.phase !== "gameover" && screen !== "game") {

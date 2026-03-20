@@ -48,6 +48,9 @@ export function useFirebaseMultiplayer() {
     unsubscribeFuncs.current = [];
     actionsListenerRef.current = null; // リスナー状態をリセット
 
+    // Also clear the UI-level listeners to prevent stale triggers
+    listenersRef.current = {};
+
     setConnected(false);
     connectionRef.current = { roomId: null, selfId: null, isHost: false };
   }, []);
@@ -82,6 +85,7 @@ export function useFirebaseMultiplayer() {
     const unsubActions = onChildAdded(actionsRef, (snapshot) => {
       if (snapshot.exists()) {
         const actionData = snapshot.val();
+        console.log("[HOST] peer_action received from Firebase:", JSON.stringify(actionData));
         trigger("peer_action", actionData);
         remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
       }
@@ -251,7 +255,11 @@ export function useFirebaseMultiplayer() {
           const myStateRef = ref(db, `rooms/${roomId}/states/${selfId}`);
            const unsubState = onValue(myStateRef, (ssnap) => {
               if (ssnap.exists()) {
-                  trigger("sync_state", ssnap.val());
+                  const val = ssnap.val();
+                  console.log("[PEER] sync_state received from Firebase. phase:", val?.phase, "| currentPlayer:", val?.currentPlayer, "| players:", val?.players?.map(p => ({ id: p.id, name: p.name, hand: p.hand?.length })));
+                  trigger("sync_state", val);
+              } else {
+                  console.log("[PEER] sync_state path exists but no data yet (selfId:", selfId, ")");
               }
            });
            unsubscribeFuncs.current.push(unsubState);
