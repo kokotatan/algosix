@@ -86,6 +86,7 @@ export function useFirebaseMultiplayer() {
     const unsubActions = onChildAdded(actionsRef, (snapshot) => {
       if (snapshot.exists()) {
         const actionData = snapshot.val();
+        console.log("[FIREBASE] onChildAdded peer_action:", actionData.action);
         trigger("peer_action", actionData);
         remove(ref(db, `rooms/${roomId}/actions/${snapshot.key}`));
       }
@@ -277,6 +278,7 @@ export function useFirebaseMultiplayer() {
     if (event === "peer_action") {
       // Peer pushes an action to the actions list for Host to process
       const { roomId, action, payload } = data;
+      console.log("[FIREBASE] peer pushing action:", action, "to room:", roomId);
       if (roomId) {
         push(ref(db, `rooms/${roomId}/actions`), {
           senderId: selfId,
