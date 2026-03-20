@@ -42,7 +42,7 @@ function StampFloat({ stampData }) {
   if (!activeStamp) return null;
 
   return (
-    <div key={activeStamp.key} className="stamp-float" style={{ top: -38, zIndex: 10 }}>
+    <div key={activeStamp.key} className="stamp-float" style={{ top: -38, zIndex: 10, borderRadius: 0 }}>
       {activeStamp.label}
     </div>
   );
@@ -67,7 +67,7 @@ export function Card({
   const baseStyle = {
     width: dim.w,
     height: dim.h,
-    borderRadius: 4,
+    borderRadius: 0,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -174,7 +174,7 @@ export function Card({
   const pipStyle = {
     width: 10,
     height: 10,
-    borderRadius: isBlack ? 2 : "50%",
+    borderRadius: 0,
     background: isBlack ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)",
   };
 
@@ -261,7 +261,7 @@ export function Seat({
               width: 8,
               height: 8,
               background: team === "A" ? C.red : C.green,
-              borderRadius: "50%",
+              borderRadius: 0,
             }}
           />
         )}
@@ -346,7 +346,7 @@ export function DeckStack({ count, drawnCard, showDrawn, animClass = "", showCom
               left: i * 1,
               width: 46,
               height: 64,
-              borderRadius: 3,
+              borderRadius: 0,
               background: `repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 3px, #282828 3px, #282828 6px)`,
               border: `2px solid ${C.black}`,
               boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
@@ -358,7 +358,7 @@ export function DeckStack({ count, drawnCard, showDrawn, animClass = "", showCom
             style={{
               width: 46,
               height: 64,
-              borderRadius: 3,
+              borderRadius: 0,
               border: `2px dashed ${C.gray3}`,
               display: "flex",
               alignItems: "center",
@@ -407,9 +407,9 @@ export function NumberSelector({ value, onChange, disabled }) {
           disabled={disabled}
           onClick={() => !disabled && onChange(i)}
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
+            width: 36,
+            height: 36,
+            borderRadius: 0,
             border: `2px solid ${value === i ? "var(--black)" : "var(--gray2)"}`,
             background: value === i ? "var(--black)" : "var(--white)",
             color: value === i ? "var(--white)" : "var(--black)",
@@ -449,10 +449,10 @@ export function ActionPanel({
   disabled,
 }) {
   const panelStyle = {
-    background: "rgba(255,255,255,0.9)",
+    background: "rgba(255,255,255,0.95)",
     backdropFilter: "blur(10px)",
     border: "2px solid var(--black)",
-    borderRadius: "24px",
+    borderRadius: 0,
     padding: "16px 20px",
     display: "flex",
     flexDirection: "column",
@@ -469,7 +469,7 @@ export function ActionPanel({
     const finalDisabled = disabled || isDisabled;
     return {
       padding: "10px 24px",
-      borderRadius: "30px",
+      borderRadius: 0,
       border: `2px solid ${finalDisabled ? "var(--gray2)" : "var(--black)"}`,
       background: finalDisabled ? "var(--gray1)" : filled ? "var(--black)" : "var(--white)",
       color: finalDisabled ? "var(--gray3)" : filled ? "var(--white)" : "var(--black)",

@@ -46,11 +46,12 @@ export function GeometricBG() {
             top: c.y,
             width: c.size,
             height: c.size,
-            borderRadius: "50%",
+            borderRadius: 0,
             border: `1.5px solid ${c.color}`,
-            opacity: 0.3,
+            opacity: 0.2,
             animation: `float ${6 + (i % 4)}s ease-in-out infinite`,
             animationDelay: `${i * 0.5}s`,
+            transform: `rotate(${i * 45}deg)`,
           }}
         />
       );
@@ -142,6 +143,7 @@ export function ScreenWrapper({ children, showGeo = true, scroll = false }) {
           flexDirection: "column",
           overflowY: scroll ? "auto" : "hidden",
           overflowX: "hidden",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         {children}

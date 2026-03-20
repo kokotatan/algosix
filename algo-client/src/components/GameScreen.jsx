@@ -42,7 +42,7 @@ function ThinkingDots() {
     <div style={{ display: "flex", gap: 3, alignItems: "center", height: 12 }}>
       {[0, 1, 2].map(i => (
         <div key={i} style={{
-          width: 5, height: 5, borderRadius: "50%",
+          width: 5, height: 5, borderRadius: 0,
           background: "currentColor",
           animation: `dotPulse 1s ease-in-out ${i * 0.15}s infinite`
         }}/>
@@ -66,7 +66,7 @@ function ThinkingIndicator({ name, phase }) {
       gap: 8, 
       background: "var(--gray1)", 
       padding: "6px 14px", 
-      borderRadius: "20px",
+      borderRadius: 0,
       fontSize: 10,
       fontWeight: 800,
       color: "var(--gray4)",
@@ -87,7 +87,7 @@ function ConnStatus({ game }) {
   const label  = anyDc ? "切断者あり" : allOk ? "全員接続中" : "接続不安定";
   return (
     <span title={label} style={{
-      width:8, height:8, borderRadius:"50%", background:color,
+      width:8, height:8, borderRadius:0, background:color,
       display:"inline-block", flexShrink:0,
       boxShadow:`0 0 0 2px ${color}33`, transition:"background .4s",
     }}/>
@@ -209,7 +209,7 @@ function PassScreen({ playerName, onReady, message = "に渡してください",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 36,
-          borderRadius: "50%",
+          borderRadius: 0,
         }}
       >
         ▶
@@ -270,7 +270,7 @@ function PartnerTossScreen({ partnerName, hand, onToss, players, currentPlayer }
 
       {/* Show other players' card arrangements */}
       {otherPlayers.length > 0 && (
-        <div style={{ marginBottom: 16, padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 12 }}>
+        <div style={{ marginBottom: 16, padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 0 }}>
           <div style={{ fontSize: 11, color: C.gray4, fontWeight: 700, marginBottom: 8 }}>他のプレイヤーのカード配置</div>
           {otherPlayers.map(p => (
             <div key={p.id} style={{ marginBottom: 8 }}>
@@ -849,7 +849,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           border: `2px solid ${filled ? "#28a028" : "#28a028"}`,
           background: filled ? "#28a028" : "#f0fff4",
           color: filled ? "#fff" : "#28a028",
-          borderRadius: 24,
+          borderRadius: 0,
           fontSize: 14,
           fontWeight: 800,
           cursor: "pointer",
@@ -1008,7 +1008,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           <div style={{ 
             background: "var(--gray1)", 
             padding: "4px 10px", 
-            borderRadius: "20px", 
+            borderRadius: 0, 
             fontSize: 10, 
             fontWeight: 800, 
             color: "var(--gray4)",
@@ -1023,11 +1023,10 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minWidth: 80 }}>
           {state.currentPlayer === currentViewPlayer ? (
              <div style={{ 
-               background: "var(--black)", 
-               color: "var(--white)", 
-               padding: "6px 16px", 
-               borderRadius: "20px", 
-               fontSize: 12, 
+               background: "var(--black)",                color: "var(--white)", 
+                padding: "6px 16px", 
+                borderRadius: 0, 
+                fontSize: 12, 
                fontWeight: 900,
                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                animation: "pulse 2s infinite ease-in-out"
@@ -1048,7 +1047,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
             onClick={() => setShowRules(true)}
             style={{
               padding: "4px 12px",
-              borderRadius: "20px",
+              borderRadius: 0,
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
@@ -1064,7 +1063,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
             onClick={() => setShowHomeConfirm(true)}
             style={{
               padding: "4px 12px",
-              borderRadius: "20px",
+              borderRadius: 0,
               background: "var(--gray1)",
               border: "none",
               cursor: "pointer",
@@ -1100,13 +1099,34 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       {/* Action panel */}
         <div
           style={{
-            padding: "0 16px 20px",
+            padding: "0 16px 12px",
             display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
-            marginTop: 8,
-            marginBottom: 10,
+            marginTop: 4,
+            position: "relative",
           }}
         >
+        {/* Lobby Stamp Bar - Relocated for better mobile access */}
+        {onlineContext && onlineContext.roomId && (
+          <div className="stamp-bar" style={{ 
+            background: "rgba(255,255,255,0.7)", 
+            backdropFilter: "blur(5px)",
+            width: "100%", 
+            maxWidth: 340,
+            marginBottom: 8,
+            padding: "8px 12px",
+            border: "1px solid var(--gray2)",
+            borderBottom: "none"
+          }}>
+            {STAMPS.map(s => (
+              <button key={s.id} disabled={stampCooldown} onClick={() => sendStamp(s.id)} className={`stamp-btn${stampCooldown ? " cooling" : ""}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
         {isThinking && (
           <div style={{
             position: "absolute",
@@ -1116,7 +1136,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
             padding: "8px 16px",
             fontSize: 14,
             fontWeight: 700,
-            borderRadius: 20,
+            borderRadius: 0,
             boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
             zIndex: 10,
             fontFamily: "'Noto Sans JP', sans-serif"
@@ -1168,6 +1188,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center",
           gap: 20, padding: 32, textAlign: "center",
+          borderRadius: 0,
         }}>
           <div style={{ fontSize: 18, fontWeight: 900 }}>プレイヤーの一人が切断されました</div>
           <div style={{ fontSize: 13, color: "var(--gray4)" }}>
