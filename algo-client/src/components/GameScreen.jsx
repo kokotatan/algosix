@@ -368,6 +368,10 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const [comboCount, setComboCount] = useState(0);
   const [showCombo, setShowCombo] = useState(false);
   const [turnPulse, setTurnPulse] = useState(false);
+  const [attackResult, setAttackResult] = useState(null); // { type: "correct"|"incorrect", detail }
+  const pendingPassScreenRef = useRef(false);
+  const attackResultTimerRef = useRef(null);
+  const prevCurrentPlayerRef = useRef(null);
 
   const state = gameState;
   const currentPlayer = state.currentPlayer;
@@ -390,8 +394,17 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const cpuKnowledgeRefs = useRef({});
 
   useEffect(() => {
-    if (!onlineContext?.roomId && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
-      setShowPassScreen(true);
+    // Only trigger pass screen logic when currentPlayer actually changes (not just state.players updating)
+    const playerActuallyChanged = prevCurrentPlayerRef.current !== currentPlayer;
+    prevCurrentPlayerRef.current = currentPlayer;
+
+    if (playerActuallyChanged && !onlineContext?.roomId && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
+      pendingPassScreenRef.current = true;
+      setShowPassScreen(true); // lastAction effect will hide this if an attack result needs to show first
+    } else if (!playerActuallyChanged) {
+      // currentPlayer unchanged (e.g. state.players updated after card reveal) — skip pass screen
+    } else {
+      pendingPassScreenRef.current = false;
     }
     setSelectedTarget(null);
     setSelectedOwnCard(null);
@@ -415,12 +428,22 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     }
   }, [state.currentPlayer, state.phase, currentViewPlayer]);
 
-  // Handle Action Animations (Flip, Shake, Combo)
+  // Handle Action Animations (Flip, Shake, Combo) + Attack Result Overlay
   useEffect(() => {
     if (!state.lastAction) return;
     const la = state.lastAction;
-    
+
     if (la.type === "correct") {
+      // Show attack result overlay in offline mode
+      if (!onlineContext?.roomId && la.detail) {
+        if (pendingPassScreenRef.current) setShowPassScreen(false); // hide pass screen while overlay shows
+        setAttackResult({ type: "correct", detail: la.detail });
+        if (attackResultTimerRef.current) clearTimeout(attackResultTimerRef.current);
+        attackResultTimerRef.current = setTimeout(() => {
+          setAttackResult(null);
+          if (pendingPassScreenRef.current) setShowPassScreen(true);
+        }, 1800);
+      }
       setComboCount(prev => {
         const nextCombo = prev + 1;
         if (nextCombo >= 2) {
@@ -433,6 +456,16 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
         triggerCardAnim(setCardAnims, `${la.targetPlayerIndex}-${la.targetCardIndex}`, "flip-reveal", 600);
       }
     } else if (la.type === "incorrect") {
+      // Show attack result overlay in offline mode
+      if (!onlineContext?.roomId && la.detail) {
+        if (pendingPassScreenRef.current) setShowPassScreen(false);
+        setAttackResult({ type: "incorrect", detail: la.detail });
+        if (attackResultTimerRef.current) clearTimeout(attackResultTimerRef.current);
+        attackResultTimerRef.current = setTimeout(() => {
+          setAttackResult(null);
+          if (pendingPassScreenRef.current) setShowPassScreen(true);
+        }, 1800);
+      }
       setComboCount(0);
       if (la.targetPlayerIndex !== undefined && la.targetCardIndex !== undefined) {
         triggerCardAnim(setCardAnims, `${la.targetPlayerIndex}-${la.targetCardIndex}`, "shake", 500);
@@ -440,7 +473,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     } else if (la.type === "stay") {
       setComboCount(0);
     }
-  }, [state.lastAction]);
+  }, [state.lastAction, onlineContext?.roomId]);
 
   // --- ONLINE STATE SYNC LOGIC ---
 
@@ -574,6 +607,13 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       }
     }
   }, [state.lastAction, cpuSettings]);
+
+  const dismissAttackResult = () => {
+    if (attackResultTimerRef.current) clearTimeout(attackResultTimerRef.current);
+    attackResultTimerRef.current = null;
+    setAttackResult(null);
+    if (pendingPassScreenRef.current) setShowPassScreen(true);
+  };
 
   const handleDraw = () => {
     dispatchAction("draw");
@@ -808,6 +848,22 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
   return (
     <ScreenWrapper showGeo={false} scroll={true}>
+      {/* Attack Result Overlay (offline mode) */}
+      {attackResult && (
+        <div
+          className="attack-result-overlay"
+          onClick={dismissAttackResult}
+        >
+          <div className={`attack-result-badge ${attackResult.type}`}>
+            <div className="attack-result-label">
+              {attackResult.type === "correct" ? "成功！" : "失敗..."}
+            </div>
+            <div className="attack-result-detail">{attackResult.detail}</div>
+            <div className="attack-result-hint">タップして続ける</div>
+          </div>
+        </div>
+      )}
+
       {/* Stamp Flow Overlay - only in online rooms */}
       {onlineContext?.roomId && (
         <div className="stamp-overlay">
