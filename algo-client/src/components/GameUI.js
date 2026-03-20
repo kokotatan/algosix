@@ -57,6 +57,7 @@ export function Card({
   isSelected = false,
   isOwn = false,
   showNumber = false,
+  isTossed = false,
   animClass = "",
 }) {
   const dim = CARD_SIZES[size];
@@ -83,15 +84,20 @@ export function Card({
 
   // Face-up card
   if (isRevealed) {
+    const tossColor = "#d97706"; // amber for toss cards
     const faceStyle = {
       ...baseStyle,
       background: isBlack ? C.black : C.white,
       color: isBlack ? C.white : C.black,
       border: isSelected
         ? `3px solid ${C.green}`
+        : isTossed
+        ? `2px dashed ${tossColor}`
         : `2px solid ${C.black}`,
       boxShadow: isSelected
         ? `0 0 8px ${C.green}66`
+        : isTossed
+        ? `0 0 8px ${tossColor}55, 0 2px 4px rgba(0,0,0,0.1)`
         : "0 2px 4px rgba(0,0,0,0.1)",
       transform: isSelected ? "translateY(-4px)" : "none",
     };
@@ -105,7 +111,27 @@ export function Card({
         tabIndex={isSelectable ? 0 : undefined}
       >
         {card.number}
-        {isOwn && card.revealed && (
+        {isTossed && (
+          <span
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -6,
+              fontSize: 8,
+              background: tossColor,
+              color: "#fff",
+              padding: "2px 5px",
+              borderRadius: "10px",
+              fontWeight: 800,
+              letterSpacing: 0.5,
+              border: "1.5px solid #fff",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+            }}
+          >
+            TOSS
+          </span>
+        )}
+        {isOwn && card.revealed && !isTossed && (
           <span
             style={{
               position: "absolute",
@@ -270,6 +296,7 @@ export function Seat({
               showNumber={showNumber}
               isSelectable={isSelectable}
               isSelected={isSelected}
+              isTossed={isTossedCard}
               animClass={cardAnims[`${player.id}-${idx}`] || ""}
               onClick={() => {
                 if (isSelectable && onCardClick) {
