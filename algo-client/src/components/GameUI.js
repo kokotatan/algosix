@@ -802,6 +802,7 @@ export function GameBoard({
             style={{
               flex: 1,
               width: "100%",
+              minWidth: 0, // CRITICAL for flex scrolling
               overflowX: "auto",
               overflowY: "hidden",
               display: "flex",

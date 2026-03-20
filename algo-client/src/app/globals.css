@@ -23,6 +23,7 @@
 html, body {
   height: 100svh;
   width: 100%;
+  max-width: 100vw;
   overflow: hidden;
   background: var(--bg);
   font-family: 'Noto Sans JP', sans-serif;
@@ -102,9 +103,11 @@ button:active {
 .opponents-scroll-container {
   position: relative;
   width: 100%;
+  max-width: 100vw;
   flex: 1;
   display: flex;
   overflow: hidden;
+  align-items: center;
 }
 .opponents-scroll-container::before,
 .opponents-scroll-container::after {
