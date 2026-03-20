@@ -231,6 +231,7 @@ export default function AlgoApp() {
   // Handle remote game state from Firebase (replaces event-based sync_state for guaranteed delivery)
   useEffect(() => {
     if (!remoteGameState) return;
+    console.log("[DIAG-H] Peer received remoteGameState, currentPlayer=", remoteGameState.currentPlayer, "phase=", remoteGameState.phase);
     stateFromFirebaseRef.current = true;
     setGameState(remoteGameState);
     if (remoteGameState.phase !== "gameover") {

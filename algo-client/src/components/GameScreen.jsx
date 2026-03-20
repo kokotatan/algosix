@@ -381,7 +381,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const myIndexRaw = (onlineContext?.roomId && selfId)
     ? state?.players?.findIndex(p => String(p.id).trim().toLowerCase() === String(selfId).trim().toLowerCase())
     : state.currentPlayer;
-  
+
   // Robust fallback for myIndex
   const myIndex = (myIndexRaw === -1 || myIndexRaw === undefined) ? 0 : myIndexRaw;
   const currentViewPlayer = myIndex;
@@ -390,6 +390,14 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const isMyTurn = !onlineContext?.roomId
     || currentPlayer === myIndex
     || Boolean(state.players[currentPlayer]?.isCpu);
+
+  // DIAGNOSTIC: log key values on each render (throttled via ref to avoid spam)
+  const diagLoggedRef = useRef(null);
+  const diagKey = `${currentPlayer}-${state.phase}-${myIndex}-${isMyTurn}`;
+  if (diagKey !== diagLoggedRef.current) {
+    diagLoggedRef.current = diagKey;
+    console.log("[DIAG-I] selfId=", selfId, "myIndex=", myIndex, "(raw="+myIndexRaw+")", "currentPlayer=", currentPlayer, "isMyTurn=", isMyTurn, "phase=", state.phase, "isHost=", isHost, "roomId=", roomId);
+  }
 
   const cardSize = getCardSize(state.players.length);
 
@@ -496,6 +504,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     }
 
     // Write masked state for each peer
+    console.log("[DIAG-F] Host sync effect: onlinePlayers=", onlinePlayers.map(p=>p.id), "statePlayers=", state.players.map(p=>p.id));
     onlinePlayers.forEach(p => {
       if (p.isHost) return; // Already written above
 
@@ -503,6 +512,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
       if (!targetId) return;
 
       const pIndex = state.players.findIndex(sp => String(sp.id) === String(targetId));
+      console.log("[DIAG-F] targetId=", targetId, "pIndex=", pIndex);
       if (pIndex === -1) return;
 
       const maskedState = JSON.parse(JSON.stringify(state)); // Deep clone
@@ -526,6 +536,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
   // --- ACTION DISPATCHER ---
   const dispatchAction = useCallback((actionType, payload) => {
+    console.log("[DIAG-A] dispatchAction:", actionType, "| isHost=", isHost, "| roomId=", roomId, "| onlineCtx=", !!onlineContext?.roomId);
     if (onlineContext && onlineContext.roomId && !isHost) {
       // Peer sends action to host instead of executing it locally
       emit("peer_action", { roomId, action: actionType, payload });
@@ -578,7 +589,9 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   // Host: Listen for peer actions and dispatch them (registered once, stable handler)
   useEffect(() => {
     if (!onlineContext?.roomId || !isHost) return;
+    console.log("[DIAG-E] Host registering peer_action listener");
     const handlePeerAction = (data) => {
+      console.log("[DIAG-E] Host handlePeerAction called:", data.action);
       dispatchActionRef.current(data.action, data.payload);
     };
     on("peer_action", handlePeerAction);
