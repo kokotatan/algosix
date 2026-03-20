@@ -690,6 +690,16 @@ export function GameBoard({
   const { players, mode } = state;
   const count = players.length;
 
+  // Refs for horizontal scroll (4+ players)
+  const scrollRef = useRef(null);
+  const deckRef = useRef(null);
+  useEffect(() => {
+    if (count < 4 || !scrollRef.current || !deckRef.current) return;
+    const container = scrollRef.current;
+    const deck = deckRef.current;
+    container.scrollLeft = deck.offsetLeft - container.clientWidth / 2 + deck.offsetWidth / 2;
+  }, [count]);
+
   // Simple getter for team since getTeam is usually imported in logic
   const getTeamLabel = (idx) => (idx % 2 === 0 ? "A" : "B");
   const myTeam = mode === "pair" ? getTeamLabel(currentViewPlayer) : null;
@@ -779,30 +789,47 @@ export function GameBoard({
     );
   }
 
-  // 4 players — diamond
+  // 4+ players — horizontal scroll, deck centered
   return (
     <div style={boardStyle}>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        {makeSeat(reordered[2], (currentViewPlayer + 2) % count)}
-      </div>
       <div
+        ref={scrollRef}
+        className="opponents-scroll"
         style={{
-          display: "flex",
-          justifyContent: "space-between",
+          flex: 1,
           width: "100%",
+          overflowX: "auto",
+          overflowY: "hidden",
+          display: "flex",
           alignItems: "center",
+          gap: 16,
+          padding: "0 40px",
+          scrollbarWidth: "none",
+          WebkitOverflowScrolling: "touch",
         }}
       >
-        {makeSeat(reordered[1], (currentViewPlayer + 1) % count)}
-        <DeckStack
-          count={state.deck.length}
-          drawnCard={state.drawnCard}
-          showDrawn={currentViewPlayer === state.currentPlayer}
-          animClass={cardAnims[`${state.currentPlayer}-new`] || ""}
-          showCombo={showCombo}
-          comboCount={comboCount}
-        />
-        {makeSeat(reordered[3], (currentViewPlayer + 3) % count)}
+        {Array.from({ length: count - 1 }, (_, i) => {
+          const absIdx = (currentViewPlayer + i + 1) % count;
+          // Insert deck after the first opponent so it sits in the center
+          if (i === 0) {
+            return (
+              <React.Fragment key={`opp-0`}>
+                {makeSeat(reordered[1], absIdx)}
+                <div ref={deckRef}>
+                  <DeckStack
+                    count={state.deck.length}
+                    drawnCard={state.drawnCard}
+                    showDrawn={currentViewPlayer === state.currentPlayer}
+                    animClass={cardAnims[`${state.currentPlayer}-new`] || ""}
+                    showCombo={showCombo}
+                    comboCount={comboCount}
+                  />
+                </div>
+              </React.Fragment>
+            );
+          }
+          return makeSeat(reordered[i + 1], absIdx);
+        })}
       </div>
       <div className={`my-area${turnPulse ? " turn-pulse" : ""}`} style={{ display: "flex", justifyContent: "center", paddingBottom: 10 }}>
         {makeSeat(reordered[0], currentViewPlayer)}

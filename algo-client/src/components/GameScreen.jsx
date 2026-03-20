@@ -732,7 +732,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     const partnerIdx = getPartnerIndex(state.players.length, currentPlayer);
     const partner = state.players[partnerIdx];
 
-    if (state.phase === "pass_to_partner") {
+    if (state.phase === "pass_to_partner" && !attackResult) {
       // If online mode, skip swap screen entirely
       if (onlineContext?.roomId) return null;
       // If partner is CPU, don't show pass screen — let useEffect handle auto-toss

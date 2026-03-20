@@ -95,6 +95,11 @@ button:active {
   transform: scale(0.97) !important;
 }
 
+/* ─── Opponents scroll (4+ players) ─── */
+.opponents-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 3px;

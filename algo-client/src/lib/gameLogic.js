@@ -320,13 +320,12 @@ export function pairStayAction(state) {
 }
 
 /**
- * Continue in pair mode — go back to toss before re-attack
+ * Continue in pair mode — keep tossed card and return directly to attack phase
  */
 export function pairContinueAction(state) {
   return {
     ...state,
-    phase: "pass_to_partner",
-    tossedCard: null,
+    phase: "attack",
     myAttackCardIndex: null,
     lastAction: { type: "continue", detail: "再アタック" },
   };
