@@ -479,7 +479,8 @@ export function getNextPlayer(state) {
 export function getCardSize(playerCount) {
   if (playerCount === 2) return "xl";
   if (playerCount === 3) return "lg";
-  return "md";
+  if (playerCount === 4) return "md";
+  return "sm";
 }
 
 /**

@@ -79,13 +79,20 @@ export function useFirebaseMultiplayer() {
   // ホスト用 peer_action リスナーを登録する（二重登録防止付き）
   const registerActionsListener = useCallback((roomId) => {
     if (actionsListenerRef.current) return; // 既に登録済み
+    console.log("[DIAG-C] registerActionsListener: setting up onValue for", roomId);
     let lastProcessedTs = 0;
     const pendingRef = ref(db, `rooms/${roomId}/pendingAction`);
     const unsubActions = onValue(pendingRef, (snapshot) => {
+      console.log("[DIAG-C] pendingAction onValue fired, exists=", snapshot.exists());
       if (!snapshot.exists()) return;
       const actionData = snapshot.val();
-      if (!actionData.ts || actionData.ts <= lastProcessedTs) return;
+      console.log("[DIAG-D] pending action data:", actionData, "lastProcessedTs=", lastProcessedTs);
+      if (!actionData.ts || actionData.ts <= lastProcessedTs) {
+        console.log("[DIAG-D] SKIPPED (duplicate ts)");
+        return;
+      }
       lastProcessedTs = actionData.ts;
+      console.log("[DIAG-D] triggering peer_action:", actionData.action);
       trigger("peer_action", actionData);
       set(pendingRef, null);
     });
@@ -275,6 +282,7 @@ export function useFirebaseMultiplayer() {
 
     if (event === "peer_action") {
       const { roomId, action, payload } = data;
+      console.log("[DIAG-B] peer emit peer_action:", action, "roomId=", roomId, "selfId=", selfId);
       if (roomId) {
         set(ref(db, `rooms/${roomId}/pendingAction`), {
           senderId: selfId,
@@ -282,6 +290,8 @@ export function useFirebaseMultiplayer() {
           payload,
           ts: Date.now()
         });
+      } else {
+        console.warn("[DIAG-B] MISSING roomId — peer_action NOT sent!");
       }
       return;
     }
