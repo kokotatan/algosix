@@ -200,6 +200,7 @@ export function Seat({
   onCardClick,
   selectedCardIndex,
   selectedOwnCardIndex,
+  ownCardSelecting = false, // brief lock after own card pick in pair mode
   phase,
   mode,
   team,
@@ -278,9 +279,9 @@ export function Seat({
 
           const isTargetSelectable = isAttackTarget && !card.revealed;
           const isOwnSelectable = isMyAttackCard && !card.revealed;
-          
-          // Enforce picking own card first in pair mode
-          const canSelectTarget = isTargetSelectable && (mode !== "pair" || selectedOwnCardIndex !== null);
+
+          // Enforce picking own card first in pair mode; lock opponent cards briefly after own card picked
+          const canSelectTarget = isTargetSelectable && (mode !== "pair" || (selectedOwnCardIndex !== null && !ownCardSelecting));
           const isSelectable = canSelectTarget || isOwnSelectable;
 
           const isSelected = 
@@ -435,6 +436,7 @@ export function ActionPanel({
   tossedCard,
   selectedTarget,
   selectedOwnCard, // For pair mode
+  ownCardSelecting = false,
   guessNumber,     // For individual mode
   onDraw,
   onAttack,
@@ -566,6 +568,8 @@ export function ActionPanel({
           <div style={{ fontSize: 13, color: C.black, fontWeight: 600, textAlign: "center", margin: "4px 0" }}>
             {selectedOwnCard === null ? (
               <span>1. アタックに使う<b>自分の裏の手札</b>を選ぶ</span>
+            ) : ownCardSelecting ? (
+              <span style={{ color: C.green }}>✓ 手札を選択！<b>相手のカード</b>を選ぼう</span>
             ) : !selectedTarget ? (
               <span>2. アタックする<b>相手の伏せカード</b>を選ぶ</span>
             ) : (
@@ -677,6 +681,7 @@ export function GameBoard({
   onCardClick,
   selectedTarget,
   selectedOwnCard, // New for pair mode
+  ownCardSelecting = false, // brief lock after own card pick in pair mode
   cardAnims = {},
   turnPulse = false,
   showCombo = false,
@@ -715,6 +720,7 @@ export function GameBoard({
       onCardClick={onCardClick}
       selectedCardIndex={selectedTarget}
       selectedOwnCardIndex={selectedOwnCard}
+      ownCardSelecting={ownCardSelecting}
       phase={state.phase}
       mode={mode}
       team={mode === "pair" ? getTeamLabel(pIdx) : null}

@@ -372,6 +372,8 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const pendingPassScreenRef = useRef(false);
   const attackResultTimerRef = useRef(null);
   const prevCurrentPlayerRef = useRef(null);
+  const [ownCardSelecting, setOwnCardSelecting] = useState(false); // brief lock after own card pick in pair mode
+  const ownCardSelectingTimerRef = useRef(null);
 
   const state = gameState;
   const currentPlayer = state.currentPlayer;
@@ -415,6 +417,8 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     setSelectedTarget(null);
     setSelectedOwnCard(null);
     setGuessNumber(null);
+    if (ownCardSelectingTimerRef.current) clearTimeout(ownCardSelectingTimerRef.current);
+    setOwnCardSelecting(false);
   }, [state.phase]);
 
   // Handle Turn Pulse
@@ -807,6 +811,12 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
 
     if (isOwnGroup) {
       setSelectedOwnCard(cardIdx);
+      // ペア戦: 自分のカードを選択直後は相手カードを一時ロック（誤タップ防止）
+      if (state.mode === "pair") {
+        if (ownCardSelectingTimerRef.current) clearTimeout(ownCardSelectingTimerRef.current);
+        setOwnCardSelecting(true);
+        ownCardSelectingTimerRef.current = setTimeout(() => setOwnCardSelecting(false), 450);
+      }
     } else {
       setSelectedTarget({ player: playerId, card: cardIdx });
       setGuessNumber(null);
@@ -849,20 +859,51 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   return (
     <ScreenWrapper showGeo={false} scroll={true}>
       {/* Attack Result Overlay (offline mode) */}
-      {attackResult && (
-        <div
-          className="attack-result-overlay"
-          onClick={dismissAttackResult}
-        >
-          <div className={`attack-result-badge ${attackResult.type}`}>
-            <div className="attack-result-label">
-              {attackResult.type === "correct" ? "成功！" : "失敗..."}
+      {attackResult && (() => {
+        const isPairContinue = state.mode === "pair" && state.phase === "continue" && attackResult.type === "correct";
+        const overlayBtnStyle = (filled) => ({
+          padding: "10px 20px",
+          border: `2px solid ${filled ? "#28a028" : "#28a028"}`,
+          background: filled ? "#28a028" : "#f0fff4",
+          color: filled ? "#fff" : "#28a028",
+          borderRadius: 24,
+          fontSize: 14,
+          fontWeight: 800,
+          cursor: "pointer",
+          fontFamily: "'Noto Sans JP', sans-serif",
+        });
+        return (
+          <div
+            className="attack-result-overlay"
+            onClick={!isPairContinue ? dismissAttackResult : undefined}
+          >
+            <div className={`attack-result-badge ${attackResult.type}`}>
+              <div className="attack-result-label">
+                {attackResult.type === "correct" ? "成功！" : "失敗..."}
+              </div>
+              <div className="attack-result-detail">{attackResult.detail}</div>
+              {isPairContinue ? (
+                <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                  <button
+                    style={overlayBtnStyle(true)}
+                    onClick={(e) => { e.stopPropagation(); dismissAttackResult(); handleContinue(); }}
+                  >
+                    再アタック
+                  </button>
+                  <button
+                    style={overlayBtnStyle(false)}
+                    onClick={(e) => { e.stopPropagation(); dismissAttackResult(); handleStay(); }}
+                  >
+                    ステイ
+                  </button>
+                </div>
+              ) : (
+                <div className="attack-result-hint">タップして続ける</div>
+              )}
             </div>
-            <div className="attack-result-detail">{attackResult.detail}</div>
-            <div className="attack-result-hint">タップして続ける</div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Stamp Flow Overlay - only in online rooms */}
       {onlineContext?.roomId && (
@@ -1063,6 +1104,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
         onCardClick={handleCardClick}
         selectedTarget={selectedTarget}
         selectedOwnCard={selectedOwnCard}
+        ownCardSelecting={ownCardSelecting}
         cardAnims={cardAnims}
         turnPulse={turnPulse}
         showCombo={showCombo}
@@ -1106,6 +1148,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
           tossedCard={state.tossedCard}
           selectedTarget={selectedTarget}
           selectedOwnCard={selectedOwnCard}
+          ownCardSelecting={ownCardSelecting}
           guessNumber={guessNumber}
           onDraw={handleDraw}
           onAttack={handleAttack}
