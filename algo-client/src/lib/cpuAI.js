@@ -28,12 +28,11 @@ export class CpuKnowledge {
     const knownCards = [];
     game.players.forEach(p => {
       p.hand.forEach((c, ci) => {
-        let isKnown = false;
-        if (p.id === this.mySeatIndex) isKnown = true;
-        if (c.revealed) isKnown = true;
-        if (c.number !== undefined) isKnown = true;
+        // CPU knows only: its own cards, and revealed opponent cards
+        const isOwn = String(p.id) === String(this.mySeatIndex);
+        const isKnown = isOwn || c.revealed;
 
-        if (isKnown) {
+        if (isKnown && c.number != null) {
           knownCards.push({ player: p.id, cardIndex: ci, color: c.color, number: c.number });
           this.candidates[p.id][ci] = new Set([c.number]);
         }
@@ -257,6 +256,18 @@ export function cpuDecideIndividual(level, game, mySeat, knowledge) {
     };
   }
 
+  // Normal: 40% chance of random target (still uses knowledge for the guess)
+  if (level === "normal" && Math.random() < 0.4) {
+    const targetCard = selectTargetCard(level, game, mySeat, knowledge);
+    if (!targetCard) return getBestAttackIndividual(knowledge, enemyEntries);
+    const playerId = game.players[targetCard.playerIndex].id;
+    const cands = knowledge.candidates[playerId]?.[targetCard.cardIndex];
+    const guessNumber = (cands && cands.size > 0)
+      ? Array.from(cands)[Math.floor(Math.random() * cands.size)]
+      : Math.floor(Math.random() * 12);
+    return { targetPlayerIndex: targetCard.playerIndex, targetCardIndex: targetCard.cardIndex, guessNumber };
+  }
+
   return getBestAttackIndividual(knowledge, enemyEntries);
 }
 
@@ -314,6 +325,10 @@ export function shouldReattack(level, knowledge, game, mySeat) {
     });
   });
 
+  if (level === "normal") {
+    return minCandsSize === 1 && Math.random() > 0.4;
+  }
+  // hard
   if (minCandsSize === 1) return true;
   if (minCandsSize === 2) return Math.random() > 0.4;
   return false;

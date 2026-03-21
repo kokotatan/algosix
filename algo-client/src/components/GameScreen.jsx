@@ -368,6 +368,7 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const [comboCount, setComboCount] = useState(0);
   const [showCombo, setShowCombo] = useState(false);
   const [turnPulse, setTurnPulse] = useState(false);
+  const [showTurnNotif, setShowTurnNotif] = useState(false);
   const [attackResult, setAttackResult] = useState(null); // { type: "correct"|"incorrect", detail }
   const pendingPassScreenRef = useRef(false);
   const attackResultTimerRef = useRef(null);
@@ -380,7 +381,9 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   
   const myIndexRaw = (onlineContext?.roomId && selfId)
     ? state?.players?.findIndex(p => String(p.id).trim().toLowerCase() === String(selfId).trim().toLowerCase())
-    : state.currentPlayer;
+    : cpuSettings
+      ? state.players.findIndex(p => !p.isCpu) // always view from human's seat in CPU mode
+      : state.currentPlayer;
 
   // Robust fallback for myIndex
   const myIndex = (myIndexRaw === -1 || myIndexRaw === undefined) ? 0 : myIndexRaw;
@@ -396,8 +399,8 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
   const cpuKnowledgeRefs = useRef({});
 
   useEffect(() => {
-    // Only trigger pass screen logic when currentPlayer actually changes (not just state.players updating)
-    const playerActuallyChanged = prevCurrentPlayerRef.current !== currentPlayer;
+    const prevPlayer = prevCurrentPlayerRef.current;
+    const playerActuallyChanged = prevPlayer !== currentPlayer;
     prevCurrentPlayerRef.current = currentPlayer;
 
     if (playerActuallyChanged && !onlineContext?.roomId && state.mode === "individual" && (!cpuSettings || !state.players[currentPlayer].isCpu)) {
@@ -408,10 +411,17 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
     } else {
       pendingPassScreenRef.current = false;
     }
+
+    // Online mode: show turn notification when it becomes my turn (skip initial render)
+    if (playerActuallyChanged && prevPlayer !== null && onlineContext?.roomId && currentPlayer === myIndex) {
+      setShowTurnNotif(true);
+      setTimeout(() => setShowTurnNotif(false), 2200);
+    }
+
     setSelectedTarget(null);
     setSelectedOwnCard(null);
     setGuessNumber(null);
-  }, [currentPlayer, state.mode, cpuSettings, state.players, onlineContext?.roomId]);
+  }, [currentPlayer, state.mode, cpuSettings, state.players, onlineContext?.roomId, myIndex]);
 
   useEffect(() => {
     setSelectedTarget(null);
@@ -836,6 +846,28 @@ export default function GameScreen({ gameState, onGameStateChange, onGameEnd, on
               {STAMPS.find(s => s.id === p.lastStamp.id)?.label || p.lastStamp.id}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Turn notification (online mode) */}
+      {showTurnNotif && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 300,
+          display: "flex", justifyContent: "center", pointerEvents: "none",
+          animation: "fadeIn 0.2s ease both",
+        }}>
+          <div style={{
+            marginTop: 64,
+            background: C.black, color: C.white,
+            padding: "12px 32px",
+            fontSize: 16, fontWeight: 900,
+            fontFamily: "'Noto Sans JP', sans-serif",
+            letterSpacing: "0.04em",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+            animation: "fadeIn 0.2s ease both",
+          }}>
+            あなたの番です！
+          </div>
         </div>
       )}
 
